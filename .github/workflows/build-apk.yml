@@ -8,12 +8,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/pwa-builder/android-build-box:latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" 2>&1
 
       - name: Build frontend
         working-directory: frontend
@@ -24,11 +30,24 @@ jobs:
         working-directory: frontend
         run: npx cap sync android
 
+      - name: Write secrets to file
+        run: echo "$ANDROID_HOME" > /tmp/android_home.txt && ls -la "$ANDROID_HOME/platforms/" 2>&1 | tee /tmp/sdk_check.txt && ls -la "$ANDROID_HOME/build-tools/" 2>&1 | tee -a /tmp/sdk_check.txt
+
       - name: Build APK
         working-directory: frontend/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
+
+      - name: Upload error log to public paste
+        if: failure()
+        run: |
+          echo "::group::Gradle Error (last 30 lines)"
+          tail -30 /tmp/gradle.log
+          echo "::endgroup::"
+          curl -s -F "content=@/tmp/gradle.log" https://dpaste.org/api/ && echo "" && echo "--- Log URL printed above ---" || echo "dpaste upload failed"
+          # Also try ix.io
+          curl -s -F "f:1=@/tmp/gradle.log" https://ix.io 2>&1 || true
 
       - name: Upload APK
         if: success()
