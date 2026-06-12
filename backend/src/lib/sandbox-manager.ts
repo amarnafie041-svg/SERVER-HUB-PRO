@@ -106,6 +106,16 @@ auto-serve() {
 export SANDBOX_HOME="${baseDir.replace(/\\/g, "/")}"
 export SANDBOX_ID="${id}"
 source "\${SANDBOX_HOME}/.sandboxrc" 2>/dev/null
+export PS1="\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]sandbox\\[\\e[0m\\]\\[\\e[38;5;46m\\]㉿\\[\\e[38;5;226m\\]serverhub\\[\\e[0m\\]\\[\\e[38;5;46m\\])-[\\[\\e[38;5;87m\\]\\w\\[\\e[0m\\]\\[\\e[38;5;46m\\]]\\[\\e[0m\\]\\n\\[\\e[38;5;46m\\]└─\\[\\e[0m\\]$ "
+`, "utf8");
+
+  const zshrc = path.join(baseDir, ".zshrc");
+  fs.writeFileSync(zshrc, `export SANDBOX_HOME="${baseDir.replace(/\\/g, "/")}"
+export SANDBOX_ID="${id}"
+source "\${SANDBOX_HOME}/.sandboxrc" 2>/dev/null
+PROMPT='%F{46}┌──(%F{226}sandbox%F{46}㉿%F{226}serverhub%F{46})-[%F{87}%~%F{46}]%f
+%F{46}└─%f$ '
+RPROMPT=''
 `, "utf8");
 
   return baseDir;
@@ -222,7 +232,6 @@ export const sandboxManager = {
       LANG: "C.UTF-8",
       LC_ALL: "C.UTF-8",
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-      PS1: "\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]sandbox\\[\\e[0m\\]\\[\\e[38;5;46m\\]㉿\\[\\e[38;5;226m\\]serverhub\\[\\e[0m\\]\\[\\e[38;5;46m\\])-[\\[\\e[38;5;87m\\]\\w\\[\\e[0m\\]\\[\\e[38;5;46m\\]]\\[\\e[0m\\]\\n\\[\\e[38;5;46m\\]└─\\[\\e[0m\\]$ ",
       TERMINFO: "/usr/share/terminfo",
     };
 
