@@ -339,9 +339,16 @@ router.post("/files/upload", authenticate, async (req: Request, res: Response): 
     const userId = req.user?.userId || "";
     await ensureUserIsolation(userId, username);
     const busboy = await import("busboy");
-    const uploadPath = (req.headers["x-upload-path"] as string) || "/home/runner";
+    let uploadPath = (req.headers["x-upload-path"] as string) || "/home/runner";
 
     const useDocker = dockerManager.isAvailable;
+    let baseDir = "";
+
+    if (!useDocker) {
+      baseDir = getUserBaseDir(userId);
+      const relative = uploadPath.replace(/^\/home\/runner\/?/, "") || ".";
+      uploadPath = relative;
+    }
 
     const bb = busboy.default({
       headers: req.headers,
@@ -349,11 +356,6 @@ router.post("/files/upload", authenticate, async (req: Request, res: Response): 
     });
     let pendingWrites = 0;
     let uploadError: string | null = null;
-    let baseDir = "";
-
-    if (!useDocker) {
-      baseDir = getUserBaseDir(userId);
-    }
 
     const checkDone = () => {
       if (pendingWrites === 0) {
