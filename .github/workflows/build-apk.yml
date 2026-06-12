@@ -17,7 +17,9 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install SDK
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1 && $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" 2>&1
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" 2>&1
 
       - name: Build frontend
         working-directory: frontend
@@ -29,16 +31,23 @@ jobs:
         run: npx cap sync android
 
       - name: Build APK
+        shell: bash
         working-directory: frontend/android
         run: |
+          set -o pipefail
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
 
-      - name: Upload log on failure
-        if: failure()
+      - name: Verify APK
+        if: success() || failure()
+        run: ls -la frontend/android/app/build/outputs/**/*.apk 2>&1 || echo "No APK found"
+        shell: bash
+
+      - name: Upload gradle log
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: gradle-error-log
+          name: gradle-build-log
           path: /tmp/gradle.log
 
       - name: Upload APK
