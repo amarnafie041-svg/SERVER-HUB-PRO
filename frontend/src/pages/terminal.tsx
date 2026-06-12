@@ -567,10 +567,10 @@ export default function TerminalPage() {
         .terminal-container .xterm-rows .xterm-char-measure-element span { font-family: "Noto Naskh Arabic", "Amiri", "JetBrains Mono", monospace !important; }
         .run-dropdown-enter { animation: dropFadeIn 0.15s ease-out; }
         @keyframes dropFadeIn { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .virt-kb-btn { min-width: 44px; min-height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid rgba(139,92,246,0.2); background: rgba(20,10,36,0.8); color: #a1a1aa; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.12s; user-select: none; }
-        .virt-kb-btn:active { transform: scale(0.92); background: rgba(139,92,246,0.25); color: white; }
-        .quick-cmd-btn { padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.12s; border: 1px solid transparent; white-space: nowrap; user-select: none; }
-        .quick-cmd-btn:hover { background: rgba(255,255,255,0.04); }
+        .virt-kb-btn { min-width: 44px; min-height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid rgba(139,92,246,0.2); background: rgba(20,10,36,0.8); color: #a1a1aa; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.12s; user-select: none; backdrop-filter: blur(4px); }
+        .virt-kb-btn:active { transform: scale(0.92); background: rgba(139,92,246,0.25); color: white; box-shadow: 0 0 12px rgba(139,92,246,0.3); }
+        .quick-cmd-btn { padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.12s; border: 1px solid transparent; white-space: nowrap; user-select: none; background: rgba(255,255,255,0.02); }
+        .quick-cmd-btn:hover { background: rgba(255,255,255,0.06); }
         .quick-cmd-btn:active { transform: scale(0.95); }
         .tab-btn { border-radius: 8px; cursor: pointer; transition: all 0.15s; user-select: none; }
         .tab-btn:hover { background: rgba(255,255,255,0.04); }
@@ -578,21 +578,22 @@ export default function TerminalPage() {
         .preset-btn:hover { opacity: 0.8; transform: translateY(-1px); }
         .preset-btn:active { transform: scale(0.95); }
         @media (max-width: 820px) {
-          .terminal-container .xterm { padding: 2px; }
+          .terminal-container .xterm { padding: 4px; }
           .xterm { font-size: 12px !important; }
-          .xterm-rows > div { font-size: 12px !important; line-height: 1.2 !important; }
+          .xterm-rows > div { font-size: 12px !important; line-height: 1.25 !important; }
           .xterm-viewport { scrollbar-width: thin; }
           .xterm-screen { padding: 0; }
+          .terminal-container { margin: 0 2px; }
         }
         @media (max-width: 600px) {
-          .terminal-container .xterm { padding: 1px; }
+          .terminal-container .xterm { padding: 3px; }
           .xterm { font-size: 11px !important; }
-          .xterm-rows > div { font-size: 11px !important; line-height: 1.15 !important; }
+          .xterm-rows > div { font-size: 11px !important; line-height: 1.2 !important; }
         }
         @media (max-width: 420px) {
-          .terminal-container .xterm { padding: 0; }
+          .terminal-container .xterm { padding: 2px; }
           .xterm { font-size: 10px !important; }
-          .xterm-rows > div { font-size: 10px !important; line-height: 1.1 !important; }
+          .xterm-rows > div { font-size: 10px !important; line-height: 1.15 !important; }
         }
       `}</style>
       <div className={`flex flex-col overflow-hidden ${fullscreen ? "fixed inset-0 z-50" : "h-full"}`} style={{ background: terminalBg }}>
@@ -705,33 +706,33 @@ export default function TerminalPage() {
         </div>
 
         {isMobile && (
-          <div className="border-t shrink-0" style={{ background: headerBg, borderColor: "var(--border)" }}>
-            <div className="flex items-center justify-between px-2 py-0.5 border-b" style={{ borderColor: "var(--border)" }}>
+          <div className="border-t shrink-0" style={{ background: "linear-gradient(180deg, rgba(20,10,36,0.95), rgba(10,6,22,0.98))", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}>
+            <div className="flex items-center justify-between px-3 py-1 border-b" style={{ borderColor: "var(--border)" }}>
               <button onClick={() => setShowKb(!showKb)}
-                className="flex items-center gap-1 text-[9px] text-zinc-500 hover:text-white transition-colors py-1">
-                <Keyboard className="w-3 h-3" />
+                className="flex items-center gap-1.5 text-[10px] text-zinc-400 hover:text-white transition-colors py-1 px-2 rounded-lg hover:bg-white/5">
+                <Keyboard className="w-3.5 h-3.5" />
                 {showKb ? "Hide" : "Keys"}
               </button>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setRunCmd(""); setShowRunDialog(true); }} className="text-[9px] text-green-400/70 hover:text-green-300 px-1.5 py-0.5 rounded transition-colors">Run</button>
-                <button onClick={restartActive} className="text-[9px] text-yellow-400/70 hover:text-yellow-300 px-1.5 py-0.5 rounded transition-colors">Restart</button>
-                <button onClick={stopActive} className="text-[9px] text-red-400/70 hover:text-red-300 px-1.5 py-0.5 rounded transition-colors">Stop</button>
-                <span className="text-[8px] text-zinc-700 font-mono">{tabs.length}</span>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => { setRunCmd(""); setShowRunDialog(true); }} className="text-[10px] font-medium text-green-400/80 hover:text-green-300 px-2.5 py-1 rounded-lg hover:bg-green-500/10 transition-all">Run</button>
+                <button onClick={restartActive} className="text-[10px] font-medium text-yellow-400/80 hover:text-yellow-300 px-2.5 py-1 rounded-lg hover:bg-yellow-500/10 transition-all">Restart</button>
+                <button onClick={stopActive} className="text-[10px] font-medium text-red-400/80 hover:text-red-300 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-all">Stop</button>
+                <span className="text-[9px] text-zinc-700 font-mono ml-1 px-1.5 py-0.5 rounded-md bg-white/5">{tabs.length}</span>
               </div>
             </div>
             {showKb && (
-              <div className="p-1.5 overflow-x-auto">
-                <div className="flex gap-1 mb-1.5 overflow-x-auto scrollbar-none pb-0.5">
+              <div className="p-2 overflow-x-auto">
+                <div className="flex gap-1.5 mb-2 overflow-x-auto scrollbar-none pb-0.5">
                   {QUICK_CMDS.slice(0, 8).map((qc) => (
                     <button key={qc.label} onClick={() => handleQuickCmd(qc.cmd + "\r")}
-                      className="quick-cmd-btn flex items-center gap-1 text-zinc-500 hover:text-white whitespace-nowrap"
+                      className="quick-cmd-btn flex items-center gap-1 text-zinc-400 hover:text-white whitespace-nowrap"
                       style={{ borderColor: `${qc.color}20` }}>
-                      <qc.icon className="w-2.5 h-2.5" style={{ color: qc.color }} />
-                      <span className="text-[9px] font-mono">{qc.label}</span>
+                      <qc.icon className="w-3 h-3" style={{ color: qc.color }} />
+                      <span className="text-[10px] font-mono">{qc.label}</span>
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-1 flex-wrap justify-center">
+                <div className="flex gap-1.5 flex-wrap justify-center">
                   {VIRTUAL_KEYS.map((key) => (
                     <button key={key.label} onClick={() => {
                       const { ws } = getRes(activeTabId!);
@@ -742,7 +743,7 @@ export default function TerminalPage() {
                       }
                     }}
                       className={`virt-kb-btn ${key.isCtrl ? "min-w-[52px]" : ""}`}
-                      style={{ minWidth: key.label.length > 2 ? "52px" : "44px", minHeight: "36px" }}>
+                      style={{ minWidth: key.label.length > 2 ? "52px" : "44px", minHeight: "38px", fontSize: "12px" }}>
                       {key.label}
                     </button>
                   ))}

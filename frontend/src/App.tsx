@@ -23,9 +23,9 @@ function LoadingScreen() {
   return (
     <div className="flex items-center justify-center h-screen" style={{ background: "#0b0616" }}>
       <div className="flex flex-col items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg,#6d28d9,#a855f7)", boxShadow: "0 0 30px rgba(139,92,246,0.4)" }}>
-          <span className="text-white font-bold text-xl">S</span>
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden"
+          style={{ boxShadow: "0 0 40px rgba(139,92,246,0.5)" }}>
+          <img src="/logo.jpg" alt="MODMEN" className="w-full h-full object-cover" />
         </div>
         <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#8b5cf6", borderTopColor: "transparent" }} />
       </div>

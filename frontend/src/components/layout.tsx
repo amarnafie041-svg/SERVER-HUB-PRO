@@ -75,7 +75,7 @@ export function Layout({ children, path, navigate }: LayoutProps) {
         <div className="flex items-center gap-2.5 overflow-hidden">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden animate-float"
             style={{ boxShadow: "0 0 20px rgba(139,92,246,0.3)", border: "1px solid rgba(139,92,246,0.3)" }}>
-            <img src="https://i.ibb.co/s9P5XZrz/IMG-20260525-202044-835.jpg" alt="MODMEN" className="w-full h-full object-cover rounded-xl" />
+            <img src="/logo.jpg" alt="MODMEN" className="w-full h-full object-cover rounded-xl" />
           </div>
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
@@ -155,7 +155,7 @@ export function Layout({ children, path, navigate }: LayoutProps) {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden animate-float"
                 style={{ border: "1px solid rgba(139,92,246,0.3)" }}>
-                <img src="https://i.ibb.co/s9P5XZrz/IMG-20260525-202044-835.jpg" alt="MODMEN" className="w-full h-full object-cover rounded-lg" />
+                <img src="/logo.jpg" alt="MODMEN" className="w-full h-full object-cover rounded-lg" />
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-white text-xs tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>SERVER HUB</span>
