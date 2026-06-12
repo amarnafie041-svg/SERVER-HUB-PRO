@@ -24,6 +24,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install SDK components
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>&1 || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
       - name: Install dependencies
         run: npm --prefix frontend install
 
@@ -42,7 +48,10 @@ jobs:
 
       - name: Build APK
         working-directory: frontend/android
-        run: chmod +x gradlew && ./gradlew assembleDebug
+        run: |
+          chmod +x gradlew
+          export ANDROID_HOME=$ANDROID_HOME
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
