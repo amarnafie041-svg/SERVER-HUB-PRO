@@ -1,77 +1,50 @@
-FROM node:20-slim
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
-ENV TERM=xterm-256color
+ENV HOME=/home/runner
+ENV SHELL=/bin/bash
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-ENV SHELL=/bin/bash
 
-# Install essential tools (all layers merged for smaller image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
-    php-cli \
-    php-mbstring \
-    php-xml \
-    php-curl \
-    php-zip \
-    composer \
-    curl \
-    git \
-    wget \
-    sudo \
     bash \
-    zsh \
+    curl \
+    wget \
+    git \
     nano \
     vim \
     htop \
-    unzip \
     zip \
+    unzip \
     tar \
     gzip \
-    bzip2 \
     ca-certificates \
-    procps \
-    net-tools \
-    dnsutils \
+    openssh-client \
     iproute2 \
-    && apt-get clean \
+    dnsutils \
+    netcat-openbsd \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up Python virtual environment
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+RUN ln -sf /usr/bin/python3 /usr/bin/python
 
-# Create runner user and home directory
+RUN npm install -g yarn pnpm 2>/dev/null || true
+
 RUN groupadd -g 1000 runner && \
-    useradd -m -u 1000 -g 1000 -s /bin/bash runner && \
-    mkdir -p /home/runner && \
-    chown -R 1000:1000 /home/runner
+    useradd -m -u 1000 -g runner -d /home/runner -s /bin/bash runner && \
+    mkdir -p /home/runner/projects /home/runner/tmp && \
+    chown -R runner:runner /home/runner
 
-# Pre-create essential directories for read-only rootfs compat
-RUN mkdir -p /tmp /var/tmp /run /home/runner && \
-    chmod 1777 /tmp /var/tmp && \
-    chmod 755 /run
+RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/pip*, /usr/bin/npm*, /usr/bin/node*" > /etc/sudoers.d/runner
 
-# Set up global npm packages as node user
-RUN npm install -g npm@latest && \
-    npm cache clean --force
-
-# Create shell config directory
-RUN mkdir -p /etc/skel && \
-    echo 'export TERM=xterm-256color' >> /etc/skel/.bashrc && \
-    echo 'export PATH="/opt/venv/bin:$PATH"' >> /etc/skel/.bashrc
-
-# Copy init script
-COPY --chmod=755 scripts/container-init.sh /usr/local/bin/container-init.sh
-
-WORKDIR /home/runner
 USER runner
+WORKDIR /home/runner
 
-# Default shell prompt
-ENV PROMPT='%F{green}┌──(%F{white}runner%F{242}㉿%F{white}serverhub%F{green})-[%F{blue}%~%F{green}]%F{green}└─%F{green}$ %f'
+RUN python3 -m venv /home/runner/.venv 2>/dev/null || true
 
-ENTRYPOINT ["/usr/local/bin/container-init.sh"]
-CMD ["/bin/bash"]
+CMD ["/bin/bash", "--login"]

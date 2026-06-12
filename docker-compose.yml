@@ -1,6 +1,14 @@
 version: "3.8"
 
 services:
+  build-user-image:
+    image: server-hub-user:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.user
+    profiles:
+      - setup
+
   server-hub:
     build:
       context: .
@@ -14,10 +22,15 @@ services:
       - FILES_BASE_DIR=/home/runner
       - DOCKER_HOST=unix:///var/run/docker.sock
       - CONTAINER_IMAGE=server-hub-user:latest
+      - CONTAINER_MEMORY=512
+      - CONTAINER_CPU=0.5
+      - CONTAINER_DISK=2g
+      - DOCKER_NETWORK=server-hub-network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - serverhub_data:/root/.serverhub
-      - serverhub_volumes:/var/lib/docker/volumes
+    depends_on:
+      - build-user-image
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -27,4 +40,3 @@ services:
 
 volumes:
   serverhub_data:
-  serverhub_volumes:
