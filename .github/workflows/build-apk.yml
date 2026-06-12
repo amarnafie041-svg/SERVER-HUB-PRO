@@ -24,23 +24,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK components
-        run: |
-          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>&1 || true
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-
-      - name: Install dependencies
-        run: npm --prefix frontend install
-
       - name: Build frontend
-        run: npm --prefix frontend run build
+        run: npm --prefix frontend install && npm --prefix frontend run build
         env:
           VITE_API_URL: https://server-hub-v5-wrpt.onrender.com
-
-      - name: Copy Capacitor
-        working-directory: frontend
-        run: npx cap copy android
 
       - name: Sync Capacitor
         working-directory: frontend
@@ -50,8 +37,7 @@ jobs:
         working-directory: frontend/android
         run: |
           chmod +x gradlew
-          export ANDROID_HOME=$ANDROID_HOME
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
