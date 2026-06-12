@@ -64,51 +64,44 @@ const VIRTUAL_KEYS = [
   { label: "▶", value: "\x1b[C", color: "#8b5cf6" },
 ];
 
+const S = (n: number) => " ".repeat(n);
+
 const DESKTOP_BANNER = [
-  "${grn}┌──────────────────────────────────────────────────────────────────────────────┐${rst}",
-  "${grn}│${rst}   ${bold}${ylw}███████╗██╗     ███╗   ███╗ ██████╗ ██████╗ ███╗   ███╗███████╗███╗   ██╗${rst}   ${grn}│${rst}",
-  "${grn}│${rst}   ${bold}${ylw}██╔════╝██║     ████╗ ████║██╔═══██╗██╔══██╗████╗ ████║██╔════╝████╗  ██║${rst}   ${grn}│${rst}",
-  "${grn}│${rst}   ${bold}${ylw}█████╗  ██║     ██╔████╔██║██║   ██║██║  ██║██╔████╔██║█████╗  ██╔██╗ ██║${rst}   ${grn}│${rst}",
-  "${grn}│${rst}   ${bold}${ylw}██╔══╝  ██║     ██║╚██╔╝██║██║   ██║██║  ██║██║╚██╔╝██║██╔══╝  ██║╚██╗██║${rst}   ${grn}│${rst}",
-  "${grn}│${rst}   ${bold}${ylw}███████╗███████╗██║ ╚═╝ ██║╚██████╔╝██████╔╝██║ ╚═╝ ██║███████╗██║ ╚████║${rst}   ${grn}│${rst}",
-  "${grn}│${rst}   ${bold}${ylw}╚══════╝╚══════╝╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝${rst}   ${grn}│${rst}",
-  "${grn}│${rst}                                                                               ${grn}│${rst}",
-  "${grn}│${rst}                      ${bold}${g(250)}██╗  ██╗ ██████╗ ███████╗ ████████╗${rst}                      ${grn}│${rst}",
-  "${grn}│${rst}                      ${bold}${g(250)}██║  ██║ ██╔══██╗ ██╔════╝ ╚══██╔══╝${rst}                    ${grn}│${rst}",
-  "${grn}│${rst}                      ${bold}${g(250)}███████║ ██║  ██║ ███████╗    ██║${rst}                       ${grn}│${rst}",
-  "${grn}│${rst}                      ${bold}${g(250)}██╔══██║ ██║  ██║ ╚════██║    ██║${rst}                       ${grn}│${rst}",
-  "${grn}│${rst}                      ${bold}${g(250)}██║  ██║ ╚█████╔╝ ███████║    ██║${rst}                       ${grn}│${rst}",
-  "${grn}│${rst}                      ${bold}${g(250)}╚═╝  ╚═╝  ╚════╝  ╚══════╝    ╚═╝${rst}                       ${grn}│${rst}",
-  "${grn}│${rst}                                                                               ${grn}│${rst}",
-  "${grn}│${rst}    ${dim}${g(245)}Isolated Sandbox Terminal${rst}                                                  ${grn}│${rst}",
-  "${grn}│${rst}    ${dim}${g(245)}Type your commands after the ${rst}${ylw}$${rst}${dim}${g(245)} prompt${rst}                                      ${grn}│${rst}",
-  "${grn}└──────────────────────────────────────────────────────────────────────────────┘${rst}",
+  "${grn}╔" + "═".repeat(70) + "╗${rst}",
+  "${grn}║${rst}" + S(70) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(28) + "${bold}${ylw}≪  ELMODMEN  ≫${rst}" + S(28) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(28) + "${bold}${ylw}≪  HOST v6  ≫${rst}" + S(29) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(70) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(22) + "${dim}${g(245)}Isolated Sandbox Terminal${rst}" + S(23) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(19) + "${dim}${g(245)}Type commands after the ${rst}${ylw}$${rst}${dim}${g(245)} prompt${rst}" + S(19) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(70) + "${grn}║${rst}",
+  "${grn}╚" + "═".repeat(70) + "╝${rst}",
   "",
   "${ylw}$ ${rst}",
 ].join("\r\n");
 
 const MEDIUM_BANNER = [
-  "${grn}╔══════════════════════════════════════════╗${rst}",
-  "${grn}║${rst}                                          ${grn}║${rst}",
-  "${grn}║${rst}       ${bold}${ylw}ELMODMEN HOST v6${rst}                ${grn}║${rst}",
-  "${grn}║${rst}                                          ${grn}║${rst}",
-  "${grn}║${rst}    ${dim}${g(245)}Isolated Sandbox Terminal${rst}          ${grn}║${rst}",
-  "${grn}║${rst}  ${dim}${g(245)}Type commands after ${rst}${ylw}$${rst}${dim}${g(245)} prompt${rst}          ${grn}║${rst}",
-  "${grn}║${rst}                                          ${grn}║${rst}",
-  "${grn}╚══════════════════════════════════════════╝${rst}",
+  "${grn}╔" + "═".repeat(40) + "╗${rst}",
+  "${grn}║${rst}" + S(40) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(12) + "${bold}${ylw}ELMODMEN HOST v6${rst}" + S(12) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(40) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(7) + "${dim}${g(245)}Isolated Sandbox Terminal${rst}" + S(8) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(10) + "${dim}${g(245)}Type ${rst}${ylw}$${rst}${dim}${g(245)} then commands${rst}" + S(10) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(40) + "${grn}║${rst}",
+  "${grn}╚" + "═".repeat(40) + "╝${rst}",
   "",
   "${ylw}$ ${rst}",
 ].join("\r\n");
 
 const MOBILE_BANNER = [
-  "${grn}╔════════════════════════════════╗${rst}",
-  "${grn}║${rst}                                ${grn}║${rst}",
-  "${grn}║${rst}   ${bold}${ylw}ELMODMEN HOST${rst}               ${grn}║${rst}",
-  "${grn}║${rst}                                ${grn}║${rst}",
-  "${grn}║${rst}  ${dim}${g(245)}Sandbox Terminal${rst}              ${grn}║${rst}",
-  "${grn}║${rst}  ${dim}${g(245)}Type ${rst}${ylw}$${rst}${dim}${g(245)} then commands${rst}         ${grn}║${rst}",
-  "${grn}║${rst}                                ${grn}║${rst}",
-  "${grn}╚════════════════════════════════╝${rst}",
+  "${grn}╔" + "═".repeat(24) + "╗${rst}",
+  "${grn}║${rst}" + S(24) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(5) + "${bold}${ylw}ELMODMEN HOST${rst}" + S(6) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(24) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(4) + "${dim}${g(245)}Sandbox Terminal${rst}" + S(4) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(4) + "${dim}${g(245)}Type ${rst}${ylw}$${rst}${dim}${g(245)} then cmds${rst}" + S(4) + "${grn}║${rst}",
+  "${grn}║${rst}" + S(24) + "${grn}║${rst}",
+  "${grn}╚" + "═".repeat(24) + "╝${rst}",
   "",
   "${ylw}$ ${rst}",
 ].join("\r\n");
@@ -228,7 +221,7 @@ export default function TerminalPage() {
     const ylw = g(226);
     const cols = term.cols || 80;
     let raw;
-    if (cols >= 78) {
+    if (cols >= 74) {
       raw = DESKTOP_BANNER;
     } else if (cols >= 44) {
       raw = MEDIUM_BANNER;
