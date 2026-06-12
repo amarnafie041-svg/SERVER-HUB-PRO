@@ -13,7 +13,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 17 }
+        with: { distribution: temurin, java-version: 21 }
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('frontend/android/*.gradle*', 'frontend/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
       - uses: android-actions/setup-android@v3
 
       - name: Install SDK
@@ -37,6 +46,16 @@ jobs:
           set -o pipefail
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
+
+      - name: Show Gradle errors
+        if: failure()
+        shell: bash
+        run: |
+          echo "::group::Gradle error log (last 30 lines)"
+          tail -30 /tmp/gradle.log
+          echo "::endgroup::"
+          # Also extract the key error lines
+          grep -i -E "(error|FAILED|FAILURE|Exception|Build failed)" /tmp/gradle.log | head -20
 
       - name: Verify APK
         if: success() || failure()
