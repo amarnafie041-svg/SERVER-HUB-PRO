@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -23,30 +20,30 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14
+
       - uses: android-actions/setup-android@v3
 
-      - name: Accept licenses
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+      - name: Install SDK
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" --sdk_root=$ANDROID_HOME
 
-      - name: Install SDK 35
-        run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Install deps + build
+      - name: Build frontend
+        working-directory: frontend
         run: npm install && npm run build
         env:
           VITE_API_URL: https://server-hub-v5-wrpt.onrender.com
 
       - name: Sync Capacitor
+        working-directory: frontend
         run: npx cap sync android
 
       - name: Build APK
         working-directory: frontend/android
-        run: |
-          chmod +x gradlew
-          echo "JAVA_HOME=$JAVA_HOME"
-          ls $ANDROID_HOME/platforms/
-          ./gradlew assembleDebug --no-daemon --info 2>&1
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+        run: gradle assembleDebug --no-daemon --stacktrace 2>&1
 
       - name: Upload APK
         if: success()
