@@ -107,9 +107,12 @@ function App() {
 
   // Keep server alive (Render sleep prevention)
   useEffect(() => {
-    const ping = () => fetch("/api/auth/me").catch(() => {});
+    const ping = () => {
+      const token = localStorage.getItem("sh_token");
+      if (token) fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    };
     ping();
-    const id = setInterval(ping, 600000); // every 10 minutes
+    const id = setInterval(ping, 600000);
     return () => clearInterval(id);
   }, []);
 

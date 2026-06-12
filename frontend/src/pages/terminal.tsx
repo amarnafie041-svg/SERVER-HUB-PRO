@@ -318,10 +318,10 @@ export default function TerminalPage() {
         brightYellow: "#e3b341", brightBlue: "#79c0ff", brightMagenta: "#d2a8ff",
         brightCyan: "#56d4dd", brightWhite: "#f0f6fc",
       },
-      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
+      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "Noto Naskh Arabic", "Amiri", monospace',
       fontSize: fontSize,
-      lineHeight: 1.0,
-      letterSpacing: 0,
+      lineHeight: 1.2,
+      letterSpacing: 0.2,
       fontWeight: "400", fontWeightBold: "700",
       cursorBlink: true, cursorStyle: "block",
       cursorInactiveStyle: "none",
@@ -554,9 +554,12 @@ export default function TerminalPage() {
         .terminal-container .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
         .terminal-container .xterm-rows { unicode-bidi: plaintext; direction: auto; }
         .terminal-container .xterm-rows > div { direction: auto; unicode-bidi: plaintext; }
-        .terminal-container .xterm-rows .xterm-char-measur { font-feature-settings: "arab" 1; }
+        .terminal-container .xterm-rows .xterm-char-measur { font-feature-settings: "arab" 1; font-variant-ligatures: no-contextual; }
         .terminal-container .xterm-rows span { unicode-bidi: plaintext; direction: auto; white-space: pre; }
         .terminal-container .xterm-rows .xterm-cursor { unicode-bidi: embed; }
+        .terminal-container .xterm-rows .xterm-chars { unicode-bidi: plaintext; direction: auto; }
+        .terminal-container .xterm-rows .xterm-char-measure-element { font-family: "Noto Naskh Arabic", "Amiri", "JetBrains Mono", monospace; }
+        .terminal-container .xterm-rows .xterm-char-measure-element span { font-family: "Noto Naskh Arabic", "Amiri", "JetBrains Mono", monospace; }
         .run-dropdown-enter { animation: dropFadeIn 0.15s ease-out; }
         @keyframes dropFadeIn { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .virt-kb-btn { min-width: 44px; min-height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid rgba(139,92,246,0.2); background: rgba(20,10,36,0.8); color: #a1a1aa; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; user-select: none; }
