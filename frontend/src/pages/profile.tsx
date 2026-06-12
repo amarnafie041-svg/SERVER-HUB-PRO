@@ -8,16 +8,21 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
-  const { user, refreshMe } = useAuth();
+  const { user, refreshMe, updateProfileLocally } = useAuth();
   const { t } = useLang();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [displayName, setDisplayName] = useState(user?.display_name || "");
+  const [displayName, setDisplayName] = useState("");
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
-  const [avatar, setAvatar] = useState<string | null>(user?.avatar || null);
+  const [avatar, setAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDisplayName(user?.display_name || "");
+    setAvatar(user?.avatar || null);
+  }, [user?.display_name, user?.avatar]);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<"profile" | "password">("profile");
 
@@ -44,6 +49,7 @@ export default function ProfilePage() {
       });
       if (res.ok) {
         toast({ title: t("success"), description: t("profile_updated") });
+        updateProfileLocally({ display_name: displayName, avatar });
         await refreshMe();
         setCurrentPass(""); setNewPass(""); setConfirmPass("");
       } else {

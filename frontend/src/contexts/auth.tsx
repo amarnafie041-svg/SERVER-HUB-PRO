@@ -16,6 +16,8 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  updateProfileLocally: (fields: Partial<AuthUser>) => void;
+  profileVersion: number;
   isLoading: boolean;
 }
 
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("sh_token"));
   const [isLoading, setIsLoading] = useState(true);
+  const [profileVersion, setProfileVersion] = useState(0);
 
   const refreshMe = useCallback(async () => {
     const t = localStorage.getItem("sh_token");
@@ -39,6 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const updateProfileLocally = useCallback((fields: Partial<AuthUser>) => {
+    setUser(prev => prev ? { ...prev, ...fields } : null);
+    setProfileVersion(v => v + 1);
   }, []);
 
   useEffect(() => { refreshMe(); }, [refreshMe]);
@@ -57,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, refreshMe, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, refreshMe, updateProfileLocally, profileVersion, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
