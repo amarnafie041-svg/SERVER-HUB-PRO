@@ -75,15 +75,11 @@ const MEDIUM_BANNER = [
 ].join("\r\n");
 
 const MOBILE_BANNER = [
-  "${grn}╔" + "═".repeat(30) + "╗${rst}",
-  "${grn}║${rst}" + S(30) + "${grn}║${rst}",
-  "${grn}║${rst}" + S(6) + "${bold}${ylw} +-+-+-+-+-+-+-+-+${rst}" + S(6) + "${grn}║${rst}",
-  "${grn}║${rst}" + S(6) + "${bold}${ylw} |E|L|M|O|D|M|E|N|${rst}" + S(6) + "${grn}║${rst}",
-  "${grn}║${rst}" + S(6) + "${bold}${ylw} +-+-+-+-+-+-+-+-+${rst}" + S(6) + "${grn}║${rst}",
-  "${grn}║${rst}" + S(7) + "${dim}${g(245)}Isolated Sandbox${rst}" + S(7) + "${grn}║${rst}",
-  "${grn}║${rst}" + S(6) + "${dim}${g(245)}  ${rst}${ylw}$${rst}${dim}${g(245)}  then commands${rst}" + S(6) + "${grn}║${rst}",
-  "${grn}║${rst}" + S(30) + "${grn}║${rst}",
-  "${grn}╚" + "═".repeat(30) + "╝${rst}",
+  "${bold}${ylw}  _____ _     __  __  ___  ____  __  __ _____ _   _ ${rst}",
+  "${bold}${ylw} | ____| |   |  \\/  |/ _ \\|  _ \\|  \\/  | ____| \\ | |${rst}",
+  "${bold}${ylw} |  _| | |   | |\\/| | | | | | | | |\\/| |  _| |  \\| |${rst}",
+  "${bold}${ylw} | |___| |___| |  | | |_| | |_| | |  | | |___| |\\  |${rst}",
+  "${bold}${ylw} |_____|_____|_|  |_|\\___/|____/|_|  |_|_____|_| \\_|${rst}",
   "",
   "${ylw}$ ${rst}",
 ].join("\r\n");
@@ -203,8 +199,8 @@ export default function TerminalPage() {
     const ylw = g(226);
     const cols = term.cols || 80;
     let raw;
-    if (cols >= 52) {
-      raw = cols >= 82 ? DESKTOP_BANNER : MEDIUM_BANNER;
+    if (cols >= 56) {
+      raw = DESKTOP_BANNER;
     } else {
       raw = MOBILE_BANNER;
     }
