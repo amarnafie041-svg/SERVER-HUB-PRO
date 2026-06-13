@@ -220,6 +220,21 @@ export default function TerminalPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!activeTabId) return;
+    const res = resources.current[activeTabId];
+    if (!res || res.destroyed || !res.term || !res.fitAddon) return;
+    const raf = requestAnimationFrame(() => {
+      if (res.destroyed || !res.term || !res.fitAddon) return;
+      try {
+        res.fitAddon.fit();
+        res.term.clear();
+        writeElmodmenBanner(res.term);
+      } catch {}
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [activeTabId]);
+
   const setStatus = (tabId: string, s: ConnStatus) =>
     setStatuses((prev) => ({ ...prev, [tabId]: s }));
 
@@ -228,8 +243,6 @@ export default function TerminalPage() {
     const wsBase = base.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
     return `${wsBase}/api/terminal/ws/${sessionId}`;
   };
-
-  const welcomeShown = useRef<Record<string, boolean>>({});
 
   const getRes = (tabId: string): TabResources => {
     if (!resources.current[tabId])
