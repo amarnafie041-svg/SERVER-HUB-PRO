@@ -35,6 +35,13 @@ function getUserBaseDir(userId: string): string {
   return sandboxManager.getUserSandboxHome(userId) || FALLBACK_BASE_DIR;
 }
 
+function resolveUserPath(requestPath: string, userId: string): string | null {
+  if (dockerManager.isAvailable) return requestPath;
+  const baseDir = getUserBaseDir(userId);
+  const relative = requestPath.replace(/^\/home\/runner\/?/, "") || ".";
+  return safePath(relative, baseDir);
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -146,8 +153,7 @@ router.get("/files/list", authenticate, async (req: Request, res: Response): Pro
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const dirPath = safePath(reqPath, baseDir);
+    const dirPath = resolveUserPath(reqPath, userId);
     if (!dirPath) { res.status(400).json({ error: "Invalid path" }); return; }
     if (!fs.existsSync(dirPath)) { res.status(404).json({ error: "Path not found" }); return; }
     const stat = fs.statSync(dirPath);
@@ -191,8 +197,7 @@ router.get("/files/read", authenticate, async (req: Request, res: Response): Pro
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolved = safePath(filePath, baseDir);
+    const resolved = resolveUserPath(filePath, userId);
     if (!resolved) { res.status(400).json({ error: "Invalid path" }); return; }
     if (!fs.existsSync(resolved)) { res.status(404).json({ error: "File not found" }); return; }
     const stat = fs.statSync(resolved);
@@ -229,8 +234,7 @@ router.post("/files/write", authenticate, async (req: Request, res: Response): P
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolved = safePath(filePath, baseDir);
+    const resolved = resolveUserPath(filePath, userId);
     if (!resolved) { res.status(400).json({ success: false, message: "Invalid path" }); return; }
     fs.mkdirSync(path.dirname(resolved), { recursive: true });
     fs.writeFileSync(resolved, content, "utf8");
@@ -257,8 +261,7 @@ router.delete("/files/delete", authenticate, async (req: Request, res: Response)
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolved = safePath(filePath, baseDir);
+    const resolved = resolveUserPath(filePath, userId);
     if (!resolved) { res.status(400).json({ success: false, message: "Invalid path" }); return; }
     if (!fs.existsSync(resolved)) { res.status(404).json({ success: false, message: "File not found" }); return; }
     const stat = fs.statSync(resolved);
@@ -293,9 +296,8 @@ router.post("/files/rename", authenticate, async (req: Request, res: Response): 
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolvedOld = safePath(oldPath, baseDir);
-    const resolvedNew = safePath(newPath, baseDir);
+    const resolvedOld = resolveUserPath(oldPath, userId);
+    const resolvedNew = resolveUserPath(newPath, userId);
     if (!resolvedOld || !resolvedNew) { res.status(400).json({ success: false, message: "Invalid path" }); return; }
     if (!fs.existsSync(resolvedOld)) { res.status(404).json({ success: false, message: "Source not found" }); return; }
     fs.mkdirSync(path.dirname(resolvedNew), { recursive: true });
@@ -323,8 +325,7 @@ router.post("/files/mkdir", authenticate, async (req: Request, res: Response): P
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolved = safePath(dirPath, baseDir);
+    const resolved = resolveUserPath(dirPath, userId);
     if (!resolved) { res.status(400).json({ success: false, message: "Invalid path" }); return; }
     fs.mkdirSync(resolved, { recursive: true });
     res.json({ success: true, message: "Directory created" });
@@ -455,8 +456,7 @@ router.get("/files/search", authenticate, async (req: Request, res: Response): P
       return;
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolved = safePath(searchPath, baseDir);
+    const resolved = resolveUserPath(searchPath, userId);
     if (!resolved || !fs.existsSync(resolved)) { res.json([]); return; }
 
     const results: ReturnType<typeof getFileInfo>[] = [];
@@ -504,8 +504,7 @@ router.post("/files/extract", authenticate, async (req: Request, res: Response):
       }
     }
 
-    const baseDir = getUserBaseDir(userId);
-    const resolved = safePath(archivePath, baseDir);
+    const resolved = resolveUserPath(archivePath, userId);
     if (!resolved) { res.status(400).json({ success: false, message: "Invalid path" }); return; }
     if (!fs.existsSync(resolved)) { res.status(404).json({ success: false, message: "Archive not found" }); return; }
     const stat = fs.statSync(resolved);
@@ -513,7 +512,7 @@ router.post("/files/extract", authenticate, async (req: Request, res: Response):
 
     const ext = path.extname(resolved).toLowerCase();
     const baseName = path.basename(resolved);
-    const extractDir = dest ? (safePath(dest, baseDir) || path.dirname(resolved)) : path.dirname(resolved);
+    const extractDir = dest ? (resolveUserPath(dest, userId) || path.dirname(resolved)) : path.dirname(resolved);
     fs.mkdirSync(extractDir, { recursive: true });
 
     const isTarGz = baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz");
