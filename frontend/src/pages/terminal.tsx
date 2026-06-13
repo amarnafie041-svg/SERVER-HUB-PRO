@@ -372,6 +372,7 @@ export default function TerminalPage() {
       if (res.destroyed || !res.term) { resizeObs.disconnect(); return; }
       try {
         fitAddon.fit();
+        term.scrollToBottom();
         const ws = res.ws;
         if (ws?.readyState === WebSocket.OPEN) {
           const dims = fitAddon.proposeDimensions();
@@ -385,11 +386,14 @@ export default function TerminalPage() {
       const { ws } = getRes(tabId);
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data }));
     });
-    if (!welcomeShown.current[tabId]) {
-      welcomeShown.current[tabId] = true;
-      term.clear();
-      writeElmodmenBanner(term);
-    }
+    term.clear();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        try { fitAddon.fit(); } catch {}
+        term.clear();
+        writeElmodmenBanner(term);
+      });
+    });
     term.onSelectionChange(() => {
       const sel = term.getSelection();
       if (sel) navigator.clipboard.writeText(sel).catch(() => {});
@@ -535,7 +539,6 @@ export default function TerminalPage() {
     if (res.resizeObserver) res.resizeObserver.disconnect();
     if (res.term) res.term.dispose();
     delete resources.current[activeTabId];
-    welcomeShown.current[activeTabId] = false;
     setStatuses((prev) => ({ ...prev, [activeTabId]: "connecting" }));
     setTimeout(() => {
       const el = containerRefs.current[activeTabId];
