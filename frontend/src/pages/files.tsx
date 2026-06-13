@@ -183,6 +183,14 @@ export default function FilesPage() {
   }, []);
 
   const handleUpload = async (files: FileList) => {
+    const MAX_SIZE = 50 * 1024 * 1024;
+    const validFiles = Array.from(files).filter((f) => {
+      if (f.size > MAX_SIZE) {
+        toast({ title: "File too large", description: `${f.name} exceeds 50MB limit`, variant: "destructive" });
+        return false;
+      }
+      return true;
+    });
     const uploadFile = (file: File) => new Promise<void>((resolve) => {
       const form = new FormData();
       form.append("file", file);
@@ -191,17 +199,12 @@ export default function FilesPage() {
       xhr.open("POST", `${BASE}/api/files/upload`);
       xhr.setRequestHeader("x-upload-path", currentPath);
       if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          toast({ title: `Uploading ${file.name}...`, description: `${Math.round((e.loaded / e.total) * 100)}%` });
-        }
-      };
       xhr.onload = () => {
         try {
           const data = JSON.parse(xhr.responseText);
           if (xhr.status >= 200 && xhr.status < 300 && data.success) {
             refresh();
-            toast({ title: "Uploaded", description: file.name });
+            toast({ title: "Uploaded", description: file.name, variant: "success" });
           } else {
             toast({ title: "Upload failed", description: data.message || file.name, variant: "destructive" });
           }
@@ -216,8 +219,9 @@ export default function FilesPage() {
       };
       xhr.send(form);
     });
-    for (let i = 0; i < files.length; i++) {
-      await uploadFile(files[i]);
+    for (const file of validFiles) {
+      toast({ title: `Uploading ${file.name}...`, duration: 2000 });
+      await uploadFile(file);
     }
   };
 

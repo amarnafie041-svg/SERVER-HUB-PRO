@@ -17,7 +17,7 @@ services:
       - key: SESSION_SECRET
         sync: false
       - key: CORS_ORIGIN
-        value: "https://server-hub-v5.onrender.com,http://localhost:5180,http://localhost:3001"
+        value: "https://server-hub-v5-wrpt.onrender.com,https://server-hub-v5.onrender.com,http://localhost:5180,http://localhost:3001"
       - key: FILES_BASE_DIR
         value: /home/runner
       - key: NVIDIA_API_KEY
