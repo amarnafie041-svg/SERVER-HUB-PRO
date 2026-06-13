@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/auth";
 import { useLang } from "@/contexts/language";
-import { api, authFetch } from "@/lib/api";
+import { api, authFetch, BASE } from "@/lib/api";
 import {
   Users, Plus, Search, Edit2, Trash2, Check, X,
   Shield, User, Clock, Ban, RefreshCw, Crown,
@@ -53,7 +53,7 @@ export default function AdminPage() {
   useEffect(() => {
     fetchUsers();
     fetchStats();
-    fetch("/api/docker/status").then((r) => r.json()).then(setDockerStatus).catch(() => {});
+    fetch(`${BASE}/api/docker/status`).then((r) => r.json()).then(setDockerStatus).catch(() => {});
     const i = setInterval(fetchStats, 5000);
     return () => clearInterval(i);
   }, []);

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language";
-import { api } from "@/lib/api";
+import { api, BASE } from "@/lib/api";
 
 const HOME = "/home/runner";
 
@@ -102,7 +102,7 @@ export default function FilesPage() {
         const imageExts = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"];
         if (imageExts.some((e) => item.name.toLowerCase().endsWith(e))) {
           const token = localStorage.getItem("sh_token");
-          const resp = await fetch(`/api/files/read?path=${encodeURIComponent(item.path)}`, {
+          const resp = await fetch(`${BASE}/api/files/read?path=${encodeURIComponent(item.path)}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           const blob = await resp.blob();
@@ -188,7 +188,7 @@ export default function FilesPage() {
       form.append("file", file);
       const token = localStorage.getItem("sh_token");
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/files/upload`);
+      xhr.open("POST", `${BASE}/api/files/upload`);
       xhr.setRequestHeader("x-upload-path", currentPath);
       if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       xhr.upload.onprogress = (e) => {

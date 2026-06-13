@@ -4,6 +4,7 @@ import { ToastProvider } from "@/contexts/toast";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { LanguageProvider } from "@/contexts/language";
 import { Layout } from "@/components/layout";
+import { BASE } from "@/lib/api";
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const TerminalPage = lazy(() => import("@/pages/terminal"));
@@ -109,7 +110,7 @@ function App() {
   useEffect(() => {
     const ping = () => {
       const token = localStorage.getItem("sh_token");
-      if (token) fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+      if (token) fetch(`${BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
     };
     ping();
     const id = setInterval(ping, 600000);

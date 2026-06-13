@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { api } from "@/lib/api";
+import { api, BASE } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
 
 type Model = "chat" | "console";
@@ -71,7 +71,7 @@ export default function AIPage() {
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch("/api/ai/chat", {
+      const response = await fetch(`${BASE}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg, model, history, stream: true }),
@@ -120,7 +120,7 @@ export default function AIPage() {
     if (!analyzePath.trim() || !analyzeQuestion.trim() || analyzing) return;
     setAnalyzing(true);
     try {
-      const response = await fetch("/api/ai/analyze", {
+      const response = await fetch(`${BASE}/api/ai/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: analyzePath, question: analyzeQuestion }),

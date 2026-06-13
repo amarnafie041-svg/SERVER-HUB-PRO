@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language";
-import { api } from "@/lib/api";
+import { api, BASE } from "@/lib/api";
 
 interface ActivityEntry {
   id: string;
@@ -86,7 +86,7 @@ export default function ActivityPage() {
   const fetchStats = useCallback(async () => {
     try {
       const token = localStorage.getItem("sh_token");
-      const res = await fetch("/api/activity/stats", {
+      const res = await fetch(`${BASE}/api/activity/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStats(await res.json());
@@ -98,7 +98,7 @@ export default function ActivityPage() {
   const handleClear = async () => {
     try {
       const token = localStorage.getItem("sh_token");
-      await fetch("/api/activity", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await fetch(`${BASE}/api/activity`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       setEntries([]);
       fetchStats();
       toast({ title: "Activity log cleared" });
