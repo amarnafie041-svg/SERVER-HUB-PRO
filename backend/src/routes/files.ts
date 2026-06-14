@@ -38,6 +38,8 @@ function getUserBaseDir(userId: string): string {
 function resolveUserPath(requestPath: string, userId: string): string | null {
   if (dockerManager.isAvailable) return requestPath;
   const baseDir = getUserBaseDir(userId);
+  // If already resolved to sandbox dir, use directly
+  if (requestPath.startsWith(baseDir)) return safePath(requestPath, baseDir);
   const relative = requestPath.replace(/^\/home\/runner\/?/, "") || ".";
   return safePath(relative, baseDir);
 }
@@ -166,8 +168,12 @@ router.get("/files/list", authenticate, async (req: Request, res: Response): Pro
       .sort((a, b) => {
         if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
         return a.name.localeCompare(b.name);
-      });
-    res.json({ path: dirPath, items });
+      })
+      .map((item) => ({
+        ...item,
+        path: item.path.replace(dirPath, reqPath),
+      }));
+    res.json({ path: reqPath, items });
   } catch (err) {
     logger.error({ err }, "Failed to list files");
     res.status(500).json({ error: "Failed to list files" });
