@@ -1,9 +1,10 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.elmodmen.vps',
-  appName: 'ELMODMEN VPS',
-  webDir: 'dist'
+  appId: 'com.emdvps.app',
+  appName: 'EMD VPS',
+  webDir: 'dist',
+  androidScheme: 'https'
 };
 
 export default config;
