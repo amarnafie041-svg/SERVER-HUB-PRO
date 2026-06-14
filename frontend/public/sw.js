@@ -1,10 +1,6 @@
-const CACHE = "elmodmen-v3";
-self.addEventListener("install", (e) => {
-  self.skipWaiting();
-});
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-  );
-  e.waitUntil(clients.claim());
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", () => {
+  clients.claim();
+  self.registration.unregister();
+  caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
 });
