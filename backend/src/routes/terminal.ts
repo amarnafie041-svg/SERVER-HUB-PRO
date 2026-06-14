@@ -216,7 +216,16 @@ terminalRouterAPI.post("/terminal/sessions", authenticate, async (req: Request, 
     }
   }
 
-  const { id: sandboxId, homeDir } = sandboxManager.ensureUserSandbox(userId, username);
+  let sandboxId: string, homeDir: string;
+  try {
+    const sb = sandboxManager.ensureUserSandbox(userId, username);
+    sandboxId = sb.id;
+    homeDir = sb.homeDir;
+  } catch (err: any) {
+    logger.error({ err: err?.message || String(err), stack: err?.stack }, "ensureUserSandbox failed");
+    res.status(500).json({ error: "Sandbox init failed: " + (err?.message || String(err)) });
+    return;
+  }
   session.sandboxId = sandboxId;
   session.sandboxHome = homeDir;
   workDir = homeDir;
