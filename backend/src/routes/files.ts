@@ -8,6 +8,7 @@ import busboy from "busboy";
 import { logger } from "../lib/logger";
 import { authenticate } from "../middleware/authenticate";
 import { dockerManager } from "../lib/docker-manager";
+import { sandboxManager } from "../lib/sandbox-manager";
 
 const execFileAsync = promisify(execFile);
 
@@ -27,8 +28,18 @@ function safePath(requestPath: string, baseDir?: string): string | null {
   return resolved;
 }
 
-function resolveUserPath(requestPath: string, _userId: string): string | null {
-  return safePath(requestPath, FALLBACK_BASE_DIR);
+function getUserBaseDir(userId: string): string {
+  const home = sandboxManager.getUserSandboxHome(userId);
+  if (home) return home;
+  sandboxManager.ensureUserSandbox(userId);
+  return sandboxManager.getUserSandboxHome(userId) || FALLBACK_BASE_DIR;
+}
+
+function resolveUserPath(requestPath: string, userId: string): string | null {
+  if (dockerManager.isAvailable) return requestPath;
+  const baseDir = getUserBaseDir(userId);
+  const relative = requestPath.replace(/^\/home\/runner\/?/, "") || ".";
+  return safePath(relative, baseDir);
 }
 
 function formatBytes(bytes: number): string {
@@ -119,9 +130,11 @@ function getFileInfo(filePath: string): {
   }
 }
 
-function ensureUserIsolation(username: string): void {
+async function ensureUserIsolation(userId: string, username: string): Promise<void> {
   if (dockerManager.isAvailable) {
-    dockerManager.ensureContainer(username, "");
+    await dockerManager.ensureContainer(username, userId);
+  } else {
+    sandboxManager.ensureUserSandbox(userId);
   }
 }
 
@@ -129,7 +142,7 @@ router.get("/files/list", authenticate, async (req: Request, res: Response): Pro
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const reqPath = (req.query.path as string) || "/";
 
     if (dockerManager.isAvailable) {
@@ -165,7 +178,7 @@ router.get("/files/read", authenticate, async (req: Request, res: Response): Pro
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const filePath = req.query.path as string;
     if (!filePath) { res.status(400).json({ error: "Path required" }); return; }
 
@@ -206,7 +219,7 @@ router.post("/files/write", authenticate, async (req: Request, res: Response): P
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const { path: filePath, content } = req.body;
     if (!filePath || content == null) {
       res.status(400).json({ success: false, message: "Path and content required" });
@@ -236,7 +249,7 @@ router.delete("/files/delete", authenticate, async (req: Request, res: Response)
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const filePath = req.query.path as string;
     if (!filePath) { res.status(400).json({ success: false, message: "Path required" }); return; }
 
@@ -268,7 +281,7 @@ router.post("/files/rename", authenticate, async (req: Request, res: Response): 
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const { oldPath, newPath } = req.body;
     if (!oldPath || !newPath) {
       res.status(400).json({ success: false, message: "oldPath and newPath required" });
@@ -300,7 +313,7 @@ router.post("/files/mkdir", authenticate, async (req: Request, res: Response): P
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const { path: dirPath } = req.body;
     if (!dirPath) { res.status(400).json({ success: false, message: "Path required" }); return; }
 
@@ -326,10 +339,17 @@ router.post("/files/upload", authenticate, async (req: Request, res: Response): 
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     let uploadPath = (req.headers["x-upload-path"] as string) || "/home/runner";
 
     const useDocker = dockerManager.isAvailable;
+    let baseDir = "";
+
+    if (!useDocker) {
+      baseDir = getUserBaseDir(userId);
+      const relative = uploadPath.replace(/^\/home\/runner\/?/, "") || ".";
+      uploadPath = relative;
+    }
 
     const bb = busboy({
       headers: req.headers,
@@ -387,10 +407,10 @@ router.post("/files/upload", authenticate, async (req: Request, res: Response): 
           checkDone();
         });
       } else {
-        const uploadDir = path.resolve(uploadPath);
-        if (!uploadDir.startsWith("/")) { uploadError = "Invalid upload path"; pendingWrites--; checkDone(); return; }
-        fs.mkdirSync(uploadDir, { recursive: true });
-        const dest = path.join(uploadDir, safeFilename);
+        const safeDir = safePath(uploadPath, baseDir);
+        if (!safeDir) { uploadError = "Invalid upload path"; pendingWrites--; checkDone(); return; }
+        const dest = path.join(safeDir, safeFilename);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
         const ws = fs.createWriteStream(dest);
         file.pipe(ws);
         ws.on("close", () => {
@@ -425,7 +445,7 @@ router.get("/files/search", authenticate, async (req: Request, res: Response): P
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const q = req.query.q as string;
     const searchPath = (req.query.path as string) || "/home/runner";
     if (!q) { res.status(400).json({ error: "Query required" }); return; }
@@ -472,7 +492,7 @@ router.post("/files/extract", authenticate, async (req: Request, res: Response):
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
-    ensureUserIsolation(username);
+    await ensureUserIsolation(userId, username);
     const { path: archivePath, dest } = req.body;
     if (!archivePath) { res.status(400).json({ success: false, message: "Path required" }); return; }
 

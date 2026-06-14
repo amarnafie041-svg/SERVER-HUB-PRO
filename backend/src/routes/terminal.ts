@@ -8,6 +8,7 @@ import { authenticate, requireAdmin } from "../middleware/authenticate";
 import { verifyToken } from "../lib/jwt";
 import { logActivity } from "../routes/activity";
 import { dockerManager } from "../lib/docker-manager";
+import { sandboxManager } from "../lib/sandbox-manager";
 
 export const terminalRouterAPI: IRouter = Router();
 
@@ -20,6 +21,9 @@ interface TerminalSession {
   status: string;
   pty: any;
   dockerStream: any;
+  sandboxProcess: any;
+  sandboxId: string;
+  sandboxHome: string;
   clients: Set<WebSocket>;
   commandBuffer: string;
   username: string;
@@ -63,6 +67,21 @@ function broadcastToClients(session: TerminalSession, msg: object) {
     if (c.readyState === WebSocket.OPEN) c.send(data);
   }
 }
+
+terminalRouterAPI.get("/terminal/sandbox-stats", authenticate, async (_req: Request, res: Response): Promise<void> => {
+  res.json(sandboxManager.getStats());
+});
+
+terminalRouterAPI.get("/terminal/sandboxes", authenticate, requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const sandboxes = sandboxManager.getAllUserSandboxes();
+  res.json(sandboxes);
+});
+
+terminalRouterAPI.delete("/terminal/sandboxes/:userId", authenticate, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.params.userId;
+  sandboxManager.destroyUserSandbox(userId);
+  res.json({ success: true, message: `Sandbox for user ${userId} destroyed` });
+});
 
 terminalRouterAPI.get("/terminal/sessions", authenticate, async (req: Request, res: Response): Promise<void> => {
   const currentUser = (req as any).user?.username || "";
@@ -122,6 +141,9 @@ terminalRouterAPI.post("/terminal/sessions", authenticate, async (req: Request, 
     status: "running",
     pty: null,
     dockerStream: null,
+    sandboxProcess: null,
+    sandboxId: "",
+    sandboxHome: "",
     clients: new Set(),
     commandBuffer: "",
     username,
@@ -190,10 +212,14 @@ terminalRouterAPI.post("/terminal/sessions", authenticate, async (req: Request, 
         }
       }
     } catch (err) {
-      logger.warn({ err }, "Docker isolation failed, falling back to direct pty");
+      logger.warn({ err }, "Docker isolation failed, trying sandbox");
     }
   }
 
+  const { id: sandboxId, homeDir } = sandboxManager.ensureUserSandbox(userId);
+  session.sandboxId = sandboxId;
+  session.sandboxHome = homeDir;
+  workDir = homeDir;
   session.isolated = true;
 
   if (!ptyModule) {
@@ -214,11 +240,13 @@ terminalRouterAPI.post("/terminal/sessions", authenticate, async (req: Request, 
         COLORTERM: "truecolor",
         LANG: "C.UTF-8",
         LC_ALL: "C.UTF-8",
-        HOME: workDir,
-        TMPDIR: workDir + "/tmp",
-        TMP: workDir + "/tmp",
-        TEMP: workDir + "/tmp",
+        HOME: homeDir,
+        TMPDIR: homeDir + "/tmp",
+        TMP: homeDir + "/tmp",
+        TEMP: homeDir + "/tmp",
         PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        SANDBOX_HOME: homeDir,
+        SANDBOX_ID: sandboxId,
       },
     });
 
@@ -282,6 +310,9 @@ terminalRouterAPI.delete(
         try { session.dockerStream.end(); } catch {}
       }
       if (session.pty) session.pty.kill();
+      if (session.sandboxProcess) {
+        try { session.sandboxProcess.kill("SIGKILL"); } catch {}
+      }
       session.clients.forEach((c) => {
         if (c.readyState === WebSocket.OPEN) {
           c.send(JSON.stringify({ type: "exit" }));
@@ -341,6 +372,8 @@ export function setupTerminalWebSocket(wss: WebSocketServer): void {
             session.dockerStream.write(msg.data);
           } else if (session.pty) {
             session.pty.write(msg.data);
+          } else if (session.sandboxProcess) {
+            sandboxManager.writeToShell(session.sandboxId, msg.data);
           }
           for (const ch of msg.data) {
             if (ch === "\r" || ch === "\n") {
