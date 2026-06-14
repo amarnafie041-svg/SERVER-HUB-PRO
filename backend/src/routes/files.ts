@@ -359,7 +359,7 @@ router.post("/files/upload", authenticate, async (req: Request, res: Response): 
 
     const bb = busboy({
       headers: req.headers,
-      limits: { fileSize: 50 * 1024 * 1024, files: 10 },
+      limits: { fileSize: 500 * 1024 * 1024, files: 20 },
     });
     let pendingWrites = 0;
     let uploadError: string | null = null;

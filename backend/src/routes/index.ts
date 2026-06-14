@@ -10,6 +10,7 @@ import { terminalRouterAPI } from "./terminal";
 import logsRouter from "./logs";
 import activityRouter from "./activity";
 import dockerRouter from "./docker";
+import portsRouter from "./ports";
 
 const router: IRouter = Router();
 
@@ -24,6 +25,7 @@ router.use(terminalRouterAPI);
 router.use(logsRouter);
 router.use(activityRouter);
 router.use(dockerRouter);
+router.use(portsRouter);
 
 // Lightweight ping for uptime monitoring
 router.get("/ping", (_req, res) => res.json({ ok: true, time: Date.now() }));

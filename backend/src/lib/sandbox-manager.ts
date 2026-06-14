@@ -181,18 +181,57 @@ venv() {
   echo -e "\\e[38;5;46m✓ Virtualenv activated: /home/runner/.venv\\e[0m"
 }
 
+# --- Auto-install missing dependencies ---
+__ensure_deps() {
+  local dir="\${1:-.}"
+  # Python requirements.txt
+  if [ -f "\$dir/requirements.txt" ] && ! python3 -c "import pkg_resources; pkg_resources.require(open('\$dir/requirements.txt'))" 2>/dev/null; then
+    echo -e "\\e[38;5;226m⟳ Installing Python dependencies...\\e[0m"
+    pip install -r "\$dir/requirements.txt" 2>&1 | tail -3
+    echo -e "\\e[38;5;46m✓ Python deps installed\\e[0m"
+  fi
+  # Node.js package.json
+  if [ -f "\$dir/package.json" ] && [ ! -d "\$dir/node_modules" ]; then
+    echo -e "\\e[38;5;226m⟳ Installing Node.js dependencies...\\e[0m"
+    npm install --prefix "\$dir" 2>&1 | tail -3
+    echo -e "\\e[38;5;46m✓ Node.js deps installed\\e[0m"
+  fi
+  # Python app.py / main.py with flask imports
+  for f in "\$dir/app.py" "\$dir/main.py"; do
+    [ ! -f "\$f" ] && continue
+    if grep -q "flask" "\$f" 2>/dev/null && ! python3 -c "import flask" 2>/dev/null; then
+      echo -e "\\e[38;5;226m⟳ Installing Flask...\\e[0m"
+      pip install flask flask-sock flask-cors 2>&1 | tail -3
+      echo -e "\\e[38;5;46m✓ Flask installed\\e[0m"
+    fi
+    if grep -q "websocket" "\$f" 2>/dev/null && ! python3 -c "import websocket" 2>/dev/null; then
+      echo -e "\\e[38;5;226m⟳ Installing websocket-client...\\e[0m"
+      pip install websocket-client websockets 2>&1 | tail -3
+      echo -e "\\e[38;5;46m✓ WebSocket deps installed\\e[0m"
+    fi
+  done
+  # pip check for any missing deps
+  pip check 2>/dev/null | grep -q "no broken requirements" || pip install -e . 2>/dev/null || true
+}
+
+# Run command with auto-dependency install
+run() {
+  __ensure_deps
+  eval "\$@"
+}
+
 # --- Port cleanup ---
 free-port() {
   local port="\$1"
-  if [ -z "\$port" ]; then
-    echo "Usage: free-port <port>"
-    return 1
-  fi
-  local pids
-  pids=\$(lsof -ti :\$port 2>/dev/null)
+  if [ -z "\$port" ]; then echo "Usage: free-port <port>"; return 1; fi
+  local pids=""
+  pids=\$(lsof -ti :\$port 2>/dev/null || ss -tlnp 2>/dev/null | awk -v p=":\$port" '\$4 ~ p {print \$6}' | grep -oP 'pid=\K\d+' || true)
   if [ -n "\$pids" ]; then
     echo -e "\\e[38;5;226mKilling processes on port \$port: \$pids\\e[0m"
-    kill -9 \$pids 2>/dev/null
+    for pid in \$pids; do kill -9 \$pid 2>/dev/null || true; done
+    sleep 1
+    pids=\$(lsof -ti :\$port 2>/dev/null || true)
+    [ -n "\$pids" ] && for pid in \$pids; do kill -9 \$pid 2>/dev/null || true; done
     echo -e "\\e[38;5;46m✓ Port \$port freed\\e[0m"
   else
     echo -e "\\e[38;5;46m✓ Port \$port is already free\\e[0m"
@@ -202,17 +241,22 @@ free-port() {
 # --- Show process using a port ---
 who-port() {
   local port="\$1"
-  if [ -z "\$port" ]; then
-    echo "Usage: who-port <port>"
-    return 1
-  fi
-  lsof -i :\$port 2>/dev/null || echo -e "\\e[38;5;245mNo process on port \$port\\e[0m"
+  if [ -z "\$port" ]; then echo "Usage: who-port <port>"; return 1; fi
+  lsof -i :\$port 2>/dev/null || ss -tlnp 2>/dev/null | awk -v p=":\$port" '\$4 ~ p {print}' || echo -e "\\e[38;5;245mNo process on port \$port\\e[0m"
 }
 
 # --- List all used ports ---
 list-ports() {
   echo -e "\\e[1mActive ports:\\e[0m"
   lsof -i -P -n 2>/dev/null | grep LISTEN | awk '{print \$1, \$2, \$9}' | sort -u -k3
+  echo -e "\\e[1m---\\e[0m"
+  ss -tlnp 2>/dev/null | awk 'NR>1 {print \$1, \$4, \$6}' | sort -u -k2
+}
+
+# --- Reliable port check (tries lsof, then ss) ---
+__is_port_free() {
+  local p=":\$1"
+  ! lsof -i "\$p" 2>/dev/null | grep -q LISTEN && ! ss -tlnp 2>/dev/null | awk -v p="\$p" '\$4 ~ p {found=1} END {exit found}'
 }
 
 # --- Auto-serve: run a server on a free port ---
@@ -221,18 +265,19 @@ auto-serve() {
   local start_port="\${2:-8000}"
   local port=\$start_port
   local max_attempts=100
-  is_port_free() { ! ss -tlnp "sport = :\$port" 2>/dev/null | grep -q . && return 0 || return 1; }
   if [ -z "\$cmd_template" ]; then
     echo "Usage: auto-serve <command-with-{PORT}> [start_port]"
     echo "Example: auto-serve \"python3 -m http.server {PORT}\" 8000"
     return 1
   fi
   for ((i=0; i<max_attempts; i++)); do
-    if is_port_free \$port; then
+    if __is_port_free \$port; then
       local cmd="\${cmd_template//{PORT}/\$port}"
       echo ""
       echo -e "\\e[38;5;46m➜\\e[0m  \\e[1mLocal:\\e[0m   \\e[38;5;87mhttp://localhost:\$port\\e[0m"
       echo -e "\\e[38;5;245mRunning: \$cmd\\e[0m"
+      # Trap EXIT to auto-free port when process stops
+      trap "free-port \$port 2>/dev/null" EXIT
       eval "\$cmd"
       return \$?
     fi

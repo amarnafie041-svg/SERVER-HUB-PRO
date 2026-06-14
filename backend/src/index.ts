@@ -4,8 +4,10 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { setupTerminalWebSocket } from "./routes/terminal";
 import { sandboxManager } from "./lib/sandbox-manager";
+import { startPortCleanup } from "./lib/port-manager";
 
 sandboxManager.startCleanupLoop();
+startPortCleanup();
 
 const rawPort = process.env["PORT"] || "3001";
 
