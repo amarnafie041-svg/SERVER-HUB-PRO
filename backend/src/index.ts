@@ -29,9 +29,6 @@ server.on("upgrade", (req, socket, head) => {
 
 setupTerminalWebSocket(wss);
 
-import { sandboxManager } from "./lib/sandbox-manager";
-sandboxManager.startCleanupLoop();
-
 server.listen(port, "0.0.0.0", () => {
   logger.info({ port }, "Server listening");
 });
