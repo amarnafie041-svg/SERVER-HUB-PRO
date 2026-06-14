@@ -1,6 +1,5 @@
 #!/bin/bash
 # ELMODMEN Sandbox Shell v6 — Restricted Terminal Environment
-# Traps every command, enforces whitelist, limits resources
 
 SANDBOX_HOME="$SANDBOX_HOME"
 SANDBOX_ID="$SANDBOX_ID"
@@ -12,18 +11,25 @@ fi
 
 cd "$SANDBOX_HOME" || exit 1
 
-ulimit -S -t 30
-ulimit -S -f 10240
-ulimit -S -n 64
-ulimit -S -u 50
-ulimit -S -m 256000
+# Resource limits for dev servers (liberal)
+ulimit -S -t 300       # 5 min CPU time
+ulimit -S -f 102400    # 100MB file size
+ulimit -S -n 2048      # 2048 open files
+ulimit -S -u 200       # 200 processes
+ulimit -S -m 512000    # 500MB memory
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="/home/runner/.venv/bin:/home/runner/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export HOME="$SANDBOX_HOME"
 export SHELL="/bin/bash"
 export TERM="xterm-256color"
 export PS1="\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]sandbox\\[\\e[0m\\]\\[\\e[38;5;46m\\]㉿\\[\\e[38;5;226m\\]serverhub\\[\\e[0m\\]\\[\\e[38;5;46m\\])-[\\[\\e[38;5;87m\\]\\w\\[\\e[0m\\]\\[\\e[38;5;46m\\]]\\[\\e[0m\\]\n\\[\\e[38;5;46m\\]└─\\[\\e[0m\\]$ "
 
+# Activate Python venv
+if [ -f /home/runner/.venv/bin/activate ]; then
+  source /home/runner/.venv/bin/activate 2>/dev/null
+fi
+
+# Blocked: dangerous system commands (NOT package managers)
 BLACKLIST=(
   "sudo" "su" "chroot" "docker" "docker-compose"
   "systemctl" "service" "journalctl"
@@ -34,7 +40,6 @@ BLACKLIST=(
   "iptables" "ip6tables" "ufw" "firewalld"
   "crontab" "at" "batch"
   "nsenter" "unshare" "cgexec"
-  "apt" "apt-get" "dpkg" "yum" "dnf" "pacman" "rpm"
 )
 
 RESTRICTED_PATTERNS=(

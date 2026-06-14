@@ -349,7 +349,6 @@ router.post("/files/upload", authenticate, async (req: Request, res: Response): 
       baseDir = getUserBaseDir(userId, username);
       const relative = uploadPath.replace(/^\/home\/runner\/?/, "") || ".";
       uploadPath = relative;
-      uploadPath = relative;
     }
 
     const bb = busboy({

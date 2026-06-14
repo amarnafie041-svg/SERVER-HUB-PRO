@@ -34,6 +34,13 @@ else
     export DOCKER_AVAILABLE=false
 fi
 
+if [ -n "$CLOUDFLARE_DOMAIN" ]; then
+    echo "[5/5] Cloudflare configured for $CLOUDFLARE_DOMAIN"
+    export CLOUDFLARE_ENABLED=true
+else
+    echo "[5/5] Cloudflare not configured (set CLOUDFLARE_DOMAIN to enable)"
+fi
+
 echo ""
 echo "=========================================="
 echo "  Starting Server Hub Backend on port ${PORT:-3001}"

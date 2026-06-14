@@ -7,11 +7,21 @@ import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { rateLimiter, securityHeaders } from "./middleware/security";
+import {
+  cloudflareMiddleware,
+  cloudflareCacheControl,
+  cloudflareSecurityHeaders,
+} from "./middleware/cloudflare";
 
 const app: Express = express();
 
+app.set("trust proxy", ["loopback", "linklocal", "uniquelocal"]);
+
 app.use(compression({ level: 6, threshold: 256 }));
+app.use(cloudflareMiddleware);
+app.use(cloudflareSecurityHeaders);
 app.use(securityHeaders);
+app.use(cloudflareCacheControl);
 app.use(rateLimiter);
 
 app.use(pinoHttp({
@@ -23,8 +33,18 @@ app.use(pinoHttp({
 }));
 
 const corsOrigin = process.env.CORS_ORIGIN;
+const cfDomain = process.env.CLOUDFLARE_DOMAIN;
+let allowedOrigins: (string | boolean)[] = [];
+if (corsOrigin) {
+  allowedOrigins = corsOrigin.split(",").map(s => s.trim());
+  allowedOrigins.push("http://localhost:5180");
+  allowedOrigins.push("http://localhost:3001");
+  if (cfDomain) allowedOrigins.push(cfDomain);
+} else {
+  allowedOrigins = [true];
+}
 app.use(cors({
-  origin: corsOrigin ? corsOrigin.split(",").map(s => s.trim()) : true,
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "x-upload-path"],
   credentials: true,

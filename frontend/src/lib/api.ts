@@ -48,7 +48,7 @@ export const api = {
   getSystemProcesses: () => request<any[]>("/api/system/processes"),
   killProcess: (pid: number) => request<any>(`/api/system/processes/${pid}`, { method: "DELETE" }),
 
-  listFiles: (path: string) => request<any[]>(`/api/files/list?path=${encodeURIComponent(path)}`),
+  listFiles: (path: string) => request<{ path: string; items: any[] }>(`/api/files/list?path=${encodeURIComponent(path)}`),
   readFile: (path: string) => request<{ content: string }>(`/api/files/read?path=${encodeURIComponent(path)}`),
   writeFile: (path: string, content: string) => request<any>("/api/files/write", { method: "POST", body: JSON.stringify({ path, content }) }),
   deleteFile: (path: string) => request<any>(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: "DELETE" }),

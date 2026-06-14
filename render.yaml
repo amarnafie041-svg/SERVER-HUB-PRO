@@ -22,6 +22,10 @@ services:
         value: /home/runner
       - key: NVIDIA_API_KEY
         sync: false
+      - key: CLOUDFLARE_ENABLED
+        value: "true"
+      - key: CLOUDFLARE_DOMAIN
+        sync: false
     disk:
       name: serverhub-data
       mountPath: /root/.serverhub

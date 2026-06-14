@@ -1,0 +1,9 @@
+# Force HTTPS
+* https://%{CLOUDFLARE_DOMAIN}/:splat 301
+
+# API routes - bypass Cloudflare cache
+/api/* /api/:splat 200
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# WebSocket support
+/-/ws/* /-/ws/:splat 200

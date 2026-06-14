@@ -50,7 +50,10 @@ function createSandboxDirs(baseDir: string): void {
 function createHomeDir(userId?: string, username?: string): string {
   const id = generateId();
   const name = username ? sanitizeUserId(username) : (userId ? sanitizeUserId(userId) : "unknown");
-  const baseDir = path.resolve("/home/runner", `user_${name}`);
+  const homeRoot = isWindows
+    ? (process.env.USERPROFILE || "C:\\Users\\Default")
+    : "/home/runner";
+  const baseDir = path.resolve(homeRoot, `user_${name}`);
   fs.mkdirSync(baseDir, { recursive: true, mode: 0o755 });
   createSandboxDirs(baseDir);
 
@@ -59,13 +62,18 @@ function createHomeDir(userId?: string, username?: string): string {
 export SANDBOX_HOME="${baseDir}"
 export SANDBOX_ID="${id}"
 export SANDBOX_USER="${name}"
+export PATH="/home/runner/.venv/bin:/home/runner/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export PS1="\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]user_${name}\\[\\e[0m\\]\\[\\e[38;5;46m\\]㉿\\[\\e[38;5;226m\\]serverhub\\[\\e[0m\\]\\[\\e[38;5;46m\\])-[\\[\\e[38;5;87m\\]\\\\w\\[\\e[0m\\]\\[\\e[38;5;46m\\]]\\[\\e[0m\\]\\n\\[\\e[38;5;46m\\]└─\\[\\e[0m\\]$ "
 cd "${baseDir}" || exit 1
-ulimit -S -t 30 2>/dev/null
-ulimit -S -f 10240 2>/dev/null
-ulimit -S -n 64 2>/dev/null
-ulimit -S -u 50 2>/dev/null
-BLOCKED=(sudo su chroot docker docker-compose systemctl service journalctl shutdown reboot poweroff halt init mount umount fdisk mkfs dd passwd useradd usermod groupadd modprobe insmod rmmod lsmod iptables ip6tables ufw firewalld crontab at batch nsenter unshare cgexec apt apt-get dpkg yum dnf pacman rpm rm)
+ulimit -S -t 300 2>/dev/null
+ulimit -S -f 102400 2>/dev/null
+ulimit -S -n 2048 2>/dev/null
+ulimit -S -u 200 2>/dev/null
+# Activate Python venv
+if [ -f /home/runner/.venv/bin/activate ]; then
+  source /home/runner/.venv/bin/activate 2>/dev/null
+fi
+BLOCKED=(sudo su chroot docker docker-compose systemctl service journalctl shutdown reboot poweroff halt init mount umount fdisk mkfs dd passwd useradd usermod groupadd modprobe insmod rmmod lsmod iptables ip6tables ufw firewalld crontab at batch nsenter unshare cgexec)
 ESC_BLOCKED=(cd.. cd\ ..)
 preexec() {
   local cmd="$1"
@@ -100,15 +108,15 @@ set -o DEBUG 2>/dev/null
 
   const sandboxrc = path.join(baseDir, ".sandboxrc");
   const bashrc = path.join(baseDir, ".bashrc");
-  const blockedCmds = (list: string): string => {
-    const cmds = list.split(" ");
-    return cmds.map(c => `${c}() { echo -e "\\e[1;31m⛔ BLOCKED: '${c}' not allowed in sandbox\\e[0m"; return 1; }`).join("\n");
-  };
-  const BLOCKED_LIST = "sudo su chroot nsenter unshare cgexec docker docker-compose systemctl service journalctl shutdown reboot poweroff halt init mount umount fdisk mkfs dd passwd useradd usermod groupadd modprobe insmod rmmod lsmod iptables ip6tables ufw firewalld crontab at batch apt apt-get dpkg yum dnf pacman rpm update-alternatives add-apt-repository";
   const rcContent = `# ELMODMEN SANDBOX v6 - Auto functions
-${blockedCmds(BLOCKED_LIST)}
+
+# --- Package managers (allowed) ---
+apt() { sudo /usr/bin/apt "$@"; }
+apt-get() { sudo /usr/bin/apt-get "$@"; }
+dpkg() { sudo /usr/bin/dpkg "$@"; }
+
+# --- Override rm to block -rf / -f ---
 rm() {
-  local args=()
   local banned=false
   for arg in "$@"; do
     case "$arg" in
@@ -121,6 +129,8 @@ rm() {
   fi
   command rm "$@"
 }
+
+# --- cd restricted to sandbox home ---
 cd() {
   local target="\${1:-\$HOME}"
   local real_target
@@ -131,33 +141,98 @@ cd() {
   fi
   builtin cd "\$target"
 }
+
+# --- Python virtual env shortcut ---
+venv() {
+  if [ ! -f /home/runner/.venv/bin/activate ]; then
+    python3 -m venv /home/runner/.venv
+    /home/runner/.venv/bin/pip install --upgrade pip setuptools wheel
+  fi
+  source /home/runner/.venv/bin/activate
+  echo -e "\\e[38;5;46m✓ Virtualenv activated: /home/runner/.venv\\e[0m"
+}
+
+# --- Port cleanup ---
+free-port() {
+  local port="\$1"
+  if [ -z "\$port" ]; then
+    echo "Usage: free-port <port>"
+    return 1
+  fi
+  local pids
+  pids=\$(lsof -ti :\$port 2>/dev/null)
+  if [ -n "\$pids" ]; then
+    echo -e "\\e[38;5;226mKilling processes on port \$port: \$pids\\e[0m"
+    kill -9 \$pids 2>/dev/null
+    echo -e "\\e[38;5;46m✓ Port \$port freed\\e[0m"
+  else
+    echo -e "\\e[38;5;46m✓ Port \$port is already free\\e[0m"
+  fi
+}
+
+# --- Show process using a port ---
+who-port() {
+  local port="\$1"
+  if [ -z "\$port" ]; then
+    echo "Usage: who-port <port>"
+    return 1
+  fi
+  lsof -i :\$port 2>/dev/null || echo -e "\\e[38;5;245mNo process on port \$port\\e[0m"
+}
+
+# --- List all used ports ---
+list-ports() {
+  echo -e "\\e[1mActive ports:\\e[0m"
+  lsof -i -P -n 2>/dev/null | grep LISTEN | awk '{print \$1, \$2, \$9}' | sort -u -k3
+}
+
+# --- Auto-serve: run a server on a free port ---
 auto-serve() {
-  local cmd_template="$1"
+  local cmd_template="\$1"
   local start_port="\${2:-8000}"
-  local port=$start_port
+  local port=\$start_port
   local max_attempts=100
-  is_port_free() { ! ss -tlnp "sport = :$port" 2>/dev/null | grep -q . && return 0 || return 1; }
-  get_local_ip() { ip -4 addr show 2>/dev/null | grep -oP 'inet \\K[\\d.]+' | grep -v '127.0.0.1' | head -1; }
-  if [ -z "$cmd_template" ]; then
+  is_port_free() { ! ss -tlnp "sport = :\$port" 2>/dev/null | grep -q . && return 0 || return 1; }
+  if [ -z "\$cmd_template" ]; then
     echo "Usage: auto-serve <command-with-{PORT}> [start_port]"
     echo "Example: auto-serve \"python3 -m http.server {PORT}\" 8000"
     return 1
   fi
   for ((i=0; i<max_attempts; i++)); do
-    if is_port_free $port; then
-      local ip=$(get_local_ip)
-      local cmd="\${cmd_template//{PORT}/$port}"
+    if is_port_free \$port; then
+      local cmd="\${cmd_template//{PORT}/\$port}"
       echo ""
-      echo -e "\\e[38;5;46m➜\\e[0m  \\e[1mLocal:\\e[0m   \\e[38;5;87mhttp://localhost:$port\\e[0m"
-      [ -n "$ip" ] && echo -e "\\e[38;5;46m➜\\e[0m  \\e[1mNetwork:\\e[0m \\e[38;5;87mhttp://$ip:$port\\e[0m"
-      echo -e "\\e[38;5;245mRunning: $cmd\\e[0m"
-      eval "$cmd"
-      return $?
+      echo -e "\\e[38;5;46m➜\\e[0m  \\e[1mLocal:\\e[0m   \\e[38;5;87mhttp://localhost:\$port\\e[0m"
+      echo -e "\\e[38;5;245mRunning: \$cmd\\e[0m"
+      eval "\$cmd"
+      return \$?
     fi
-    port=$((port + 1))
+    port=\$((port + 1))
   done
-  echo "No free port found after $max_attempts attempts"
+  echo -e "\\e[1;31m✖ No free port found after \$max_attempts attempts\\e[0m"
   return 1
+}
+
+# --- LocalTunnel ---
+lt() {
+  local port="\$1"
+  if [ -z "\$port" ]; then
+    echo "Usage: lt <port>"
+    echo "Creates a public URL via localtunnel"
+    return 1
+  fi
+  npx localtunnel --port "\$port"
+}
+
+# --- Cloudflare Tunnel ---
+cf-tunnel() {
+  local port="\$1"
+  if [ -z "\$port" ]; then
+    echo "Usage: cf-tunnel <port>"
+    echo "Creates a public URL via Cloudflare Tunnel"
+    return 1
+  fi
+  cloudflared tunnel --url "http://localhost:\$port"
 }
 `;
   fs.writeFileSync(sandboxrc, rcContent, "utf8");
@@ -165,6 +240,8 @@ auto-serve() {
 export SANDBOX_HOME="${baseDir}"
 export SANDBOX_ID="${id}"
 export SANDBOX_USER="${name}"
+export PATH="/home/runner/.venv/bin:/home/runner/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+source /home/runner/.venv/bin/activate 2>/dev/null
 source "\${SANDBOX_HOME}/.sandboxrc" 2>/dev/null
 export PS1="\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]user_${name}\\[\\e[0m\\]\\[\\e[38;5;46m\\]㉿\\[\\e[38;5;226m\\]serverhub\\[\\e[0m\\]\\[\\e[38;5;46m\\])-[\\[\\e[38;5;87m\\]\\w\\[\\e[0m\\]\\[\\e[38;5;46m\\]]\\[\\e[0m\\]\\n\\[\\e[38;5;46m\\]└─\\[\\e[0m\\]$ "
 `, "utf8");
@@ -173,6 +250,7 @@ export PS1="\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]user_${na
   fs.writeFileSync(zshrc, `export SANDBOX_HOME="${baseDir}"
 export SANDBOX_ID="${id}"
 export SANDBOX_USER="${name}"
+source /home/runner/.venv/bin/activate 2>/dev/null
 source "\${SANDBOX_HOME}/.sandboxrc" 2>/dev/null
 PROMPT='%F{46}┌──(%F{226}user_${name}%F{46}㉿%F{226}serverhub%F{46})-[%F{87}%~%F{46}]%f
 %F{46}└─%f$ '
@@ -350,7 +428,7 @@ export const sandboxManager = {
       COLORTERM: "truecolor",
       LANG: "C.UTF-8",
       LC_ALL: "C.UTF-8",
-      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      PATH: "/home/runner/.venv/bin:/home/runner/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
       TERMINFO: "/usr/share/terminfo",
     };
 

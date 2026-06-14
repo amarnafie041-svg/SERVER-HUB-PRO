@@ -3,6 +3,9 @@ import { WebSocketServer } from "ws";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { setupTerminalWebSocket } from "./routes/terminal";
+import { sandboxManager } from "./lib/sandbox-manager";
+
+sandboxManager.startCleanupLoop();
 
 const rawPort = process.env["PORT"] || "3001";
 
@@ -28,9 +31,6 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 setupTerminalWebSocket(wss);
-
-import { sandboxManager } from "./lib/sandbox-manager";
-sandboxManager.startCleanupLoop();
 
 server.listen(port, "0.0.0.0", () => {
   logger.info({ port }, "Server listening");

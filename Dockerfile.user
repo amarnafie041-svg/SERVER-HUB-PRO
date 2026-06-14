@@ -6,45 +6,52 @@ ENV SHELL=/bin/bash
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
+# Basic system tools + dev packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    curl \
-    wget \
-    git \
-    nano \
-    vim \
-    htop \
-    zip \
-    unzip \
-    tar \
-    gzip \
-    ca-certificates \
-    openssh-client \
-    iproute2 \
-    dnsutils \
-    netcat-openbsd \
-    python3 \
-    python3-pip \
-    python3-venv \
-    nodejs \
-    npm \
-    build-essential \
+    bash curl wget git nano vim htop \
+    zip unzip tar gzip xz-utils bzip2 \
+    ca-certificates openssh-client \
+    iproute2 dnsutils netcat-openbsd \
+    software-properties-common \
+    build-essential gcc g++ make \
+    pkg-config libffi-dev libssl-dev \
+    python3 python3-pip python3-venv python3-dev \
+    nodejs npm \
+    php-cli php-common php-mbstring php-curl php-xml php-zip \
+    lsb-release gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-RUN ln -sf /usr/bin/python3 /usr/bin/python
+# Python: symlink, pip upgrade, PEP 668 bypass
+RUN ln -sf /usr/bin/python3 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+RUN python3 -m pip install --upgrade pip setuptools wheel --break-system-packages 2>/dev/null; \
+    python3 -m pip install --upgrade pip setuptools wheel 2>/dev/null || true
 
-RUN npm install -g yarn pnpm 2>/dev/null || true
+# Install cloudflared
+RUN curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared
 
+# Node.js global tools
+RUN npm install -g yarn pnpm localtunnel 2>/dev/null || true
+
+# Create runner user
 RUN groupadd -g 1000 runner && \
     useradd -m -u 1000 -g runner -d /home/runner -s /bin/bash runner && \
-    mkdir -p /home/runner/projects /home/runner/tmp && \
+    mkdir -p /home/runner/projects /home/runner/tmp /home/runner/.venv && \
     chown -R runner:runner /home/runner
 
-RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/pip*, /usr/bin/npm*, /usr/bin/node*" > /etc/sudoers.d/runner
+# Sudoers: allow package management for runner
+RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dpkg, /usr/bin/pip*, /usr/bin/npm*, /usr/bin/node*, /usr/local/bin/cloudflared" > /etc/sudoers.d/runner
 
 USER runner
 WORKDIR /home/runner
 
-RUN python3 -m venv /home/runner/.venv 2>/dev/null || true
+# Create Python virtualenv (PEP 668 fix)
+RUN python3 -m venv /home/runner/.venv && \
+    /home/runner/.venv/bin/pip install --upgrade pip setuptools wheel
+
+# Auto-activate venv in bashrc
+RUN echo 'source /home/runner/.venv/bin/activate 2>/dev/null' >> /home/runner/.bashrc && \
+    echo 'export PATH="/home/runner/.venv/bin:$PATH"' >> /home/runner/.bashrc
 
 CMD ["/bin/bash", "--login"]

@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language";
 import { api, BASE } from "@/lib/api";
 
-const HOME = "/home/runner";
+const HOME = import.meta.env.VITE_FILES_HOME || "/home/runner";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "size" | "date";
