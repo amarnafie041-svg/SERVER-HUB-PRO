@@ -79,17 +79,15 @@ const DESKTOP_BANNER = [
   "${bold}${g(46)}  ══════════════════════════════════════════════════════════════════${rst}",
 ].join("\r\n");
 
-const COMPACT_BANNER = [
-  "${bold}${grn}  ███████╗██╗ ███╗ ███╗ ██████╗ ██████╗ ███╗ ███╗███████╗███╗ ██╗     ${rst}",
-  "${bold}${grn}  ██╔════╝██║ ████╗ ████║██╔═══██╗██╔══██╗████╗ ████║██╔════╝████╗ ██║${rst}",
-  "${bold}${grn}  █████╗ ██║ ██╔████╔██║██║ ██║██║ ██║██╔████╔██║█████╗ ██╔██╗ ██║    ${rst}",
-  "${bold}${grn}  ██╔══╝ ██║ ██║╚██╔╝██║██║ ██║██║ ██║██║╚██╔╝██║██╔══╝ ██║╚██╗██║    ${rst}",
-  "${bold}${grn}  ███████╗███████╗██║╚═╝██║╚██████╔╝██████╔╝██║╚═╝██║███████╗██║╚████║${rst}",
-  "${bold}${grn}  ╚══════╝╚══════╝╚═╝ ╚═╝ ╚═════╝ ╚═════╝ ╚═╝ ╚═╝╚══════╝╚═╝ ╚═══╝    ${rst}",
+const MOBILE_WELCOME = [
   "",
-  "${bold}${g(46)}  ════════════════════════════════════════════════════════════════════${rst}",
-  "${bold}${g(46)}        ✓ CONNECTED  │  ⚡ EMD VPS  │  🔒 SECURE  │  🚀 READY        ${rst}",
-  "${bold}${g(46)}  ════════════════════════════════════════════════════════════════════${rst}",
+  "${bold}${g(201)}              Welcome To ELMODMEN World${rst}",
+  "",
+  " ${g(46)}✓${rst} Python • Node.js • PHP Supported",
+  " ${g(46)}✓${rst} Fast Deployment & Auto Restart",
+  " ${g(46)}✓${rst} Secure File Manager Access",
+  " ${g(46)}✓${rst} 24/7 VPS Environment Online",
+  "",
 ].join("\r\n");
 
 export default function TerminalPage() {
@@ -209,7 +207,7 @@ export default function TerminalPage() {
     if (cols >= 80) {
       raw = DESKTOP_BANNER;
     } else {
-      raw = COMPACT_BANNER;
+      raw = MOBILE_WELCOME;
     }
     const banner = raw
       .replace(/\$\{grn\}/g, grn)
@@ -347,7 +345,7 @@ export default function TerminalPage() {
       if (res.destroyed || !res.term) { resizeObs.disconnect(); return; }
       try {
         fitAddon.fit();
-        var b = res.term.cols >= 80 ? DESKTOP_BANNER : COMPACT_BANNER;
+        var b = res.term.cols >= 80 ? DESKTOP_BANNER : MOBILE_WELCOME;
         var sl = b.split('\r\n').length + 1;
         res.term.write('\x1b[r\x1b[' + sl + ';r\x1b[' + sl + ';1H');
         const ws = res.ws;

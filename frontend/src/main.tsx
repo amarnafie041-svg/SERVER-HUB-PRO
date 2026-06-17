@@ -4,7 +4,11 @@ import App from "./App";
 import "./index.css";
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
+  try {
+    navigator.serviceWorker.register("/sw.js");
+  } catch {
+    // Service worker registration not supported on this protocol
+  }
 }
 
 createRoot(document.getElementById("root")!).render(
