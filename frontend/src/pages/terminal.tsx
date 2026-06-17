@@ -79,25 +79,17 @@ const DESKTOP_BANNER = [
   "${bold}${g(46)}  ══════════════════════════════════════════════════════════════════${rst}",
 ].join("\r\n");
 
-const MEDIUM_BANNER = [
-  "${bold}${grn}  ███████╗██╗     ███╗   ███╗ ██████╗ ██████╗ ███╗   ███╗███████╗███╗   ██╗",
-  "${bold}${grn}  ██╔════╝██║     ████╗ ████║██╔═══██╗██╔══██╗████╗ ████║██╔════╝████╗  ██║",
-  "${bold}${grn}  █████╗  ██║     ██╔████╔██║██║   ██║██║  ██║██╔████╔██║█████╗  ██╔██╗ ██║",
-  "${bold}${grn}  ██╔══╝  ██║     ██║╚██╔╝██║██║   ██║██║  ██║██║╚██╔╝██║██╔══╝  ██║╚██╗██║",
-  "${bold}${grn}  ███████╗███████╗██║ ╚═╝ ██║╚██████╔╝██████╔╝██║ ╚═╝ ██║███████╗██║ ╚████║",
-  "${bold}${grn}  ╚══════╝╚══════╝╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝",
+const COMPACT_BANNER = [
+  "${bold}${grn}  ███████╗██╗ ███╗ ███╗ ██████╗ ██████╗ ███╗ ███╗███████╗███╗ ██╗     ${rst}",
+  "${bold}${grn}  ██╔════╝██║ ████╗ ████║██╔═══██╗██╔══██╗████╗ ████║██╔════╝████╗ ██║${rst}",
+  "${bold}${grn}  █████╗ ██║ ██╔████╔██║██║ ██║██║ ██║██╔████╔██║█████╗ ██╔██╗ ██║    ${rst}",
+  "${bold}${grn}  ██╔══╝ ██║ ██║╚██╔╝██║██║ ██║██║ ██║██║╚██╔╝██║██╔══╝ ██║╚██╗██║    ${rst}",
+  "${bold}${grn}  ███████╗███████╗██║╚═╝██║╚██████╔╝██████╔╝██║╚═╝██║███████╗██║╚████║${rst}",
+  "${bold}${grn}  ╚══════╝╚══════╝╚═╝ ╚═╝ ╚═════╝ ╚═════╝ ╚═╝ ╚═╝╚══════╝╚═╝ ╚═══╝    ${rst}",
   "",
-  "${bold}${g(46)}  ═══════════════════════════════════════════════════════${rst}",
-  "${bold}${g(46)}✓ CONNECTED ${rst}${g(226)}EMD VPS ${rst}${g(51)}SECURE ${rst}${g(201)}READY${rst}",
-  "${bold}${g(46)}  ═══════════════════════════════════════════════════════${rst}",
-].join("\r\n");
-
-const MOBILE_BANNER = [
-  "${bold}${g(46)}  ╔════════════════════════╗${rst}",
-  "${bold}${grn}  ║     E L M O D M E N    ║${rst}",
-  "${bold}${g(46)}  ║  ════════════════════  ║${rst}",
-  "${bold}${g(46)}  ║  ✓ CONNECTED    READY  ║${rst}",
-  "${bold}${g(46)}  ╚════════════════════════╝${rst}",
+  "${bold}${g(46)}  ════════════════════════════════════════════════════════════════════${rst}",
+  "${bold}${g(46)}        ✓ CONNECTED  │  ⚡ EMD VPS  │  🔒 SECURE  │  🚀 READY        ${rst}",
+  "${bold}${g(46)}  ════════════════════════════════════════════════════════════════════${rst}",
 ].join("\r\n");
 
 export default function TerminalPage() {
@@ -216,10 +208,8 @@ export default function TerminalPage() {
     let raw;
     if (cols >= 80) {
       raw = DESKTOP_BANNER;
-    } else if (cols >= 57) {
-      raw = MEDIUM_BANNER;
     } else {
-      raw = MOBILE_BANNER;
+      raw = COMPACT_BANNER;
     }
     const banner = raw
       .replace(/\$\{grn\}/g, grn)
@@ -357,7 +347,7 @@ export default function TerminalPage() {
       if (res.destroyed || !res.term) { resizeObs.disconnect(); return; }
       try {
         fitAddon.fit();
-        var b = res.term.cols >= 80 ? DESKTOP_BANNER : res.term.cols >= 57 ? MEDIUM_BANNER : MOBILE_BANNER;
+        var b = res.term.cols >= 80 ? DESKTOP_BANNER : COMPACT_BANNER;
         var sl = b.split('\r\n').length + 1;
         res.term.write('\x1b[r\x1b[' + sl + ';r\x1b[' + sl + ';1H');
         const ws = res.ws;
