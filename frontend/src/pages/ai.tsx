@@ -81,7 +81,7 @@ export default function AIPage() {
   const [analyzePath, setAnalyzePath] = useState("");
   const [analyzeQuestion, setAnalyzeQuestion] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -178,34 +178,41 @@ export default function AIPage() {
         signal: controller.signal,
       });
 
-      if (!response.ok || !response.body) throw new Error("Stream failed");
+      if (!response.ok) throw new Error("Stream failed");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.content) {
-              fullContent = parsed.content;
-              setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fullContent } : m));
-            }
-          } catch {}
+      if (!response.body || typeof response.body.getReader !== "function") {
+        const data = await response.json();
+        const content = data.content || "";
+        setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content, streaming: false } : m));
+        if (currentConvId) {
+          updateConversation(currentConvId, { messages: [...messages, userMsg, { ...assistantMsg, content, streaming: false }], model });
         }
-      }
+      } else {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = "";
 
-      if (currentConvId) {
-        const finalMessages = [...messages, userMsg, { ...assistantMsg, content: fullContent, streaming: false }];
-        updateConversation(currentConvId, { messages: finalMessages, model });
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          for (const line of chunk.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                fullContent = parsed.content;
+                setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fullContent } : m));
+              }
+            } catch {}
+          }
+        }
+
+        if (currentConvId) {
+          updateConversation(currentConvId, { messages: [...messages, userMsg, { ...assistantMsg, content: fullContent, streaming: false }], model });
+        }
       }
     } catch (err: any) {
       if (err.name !== "AbortError") {
