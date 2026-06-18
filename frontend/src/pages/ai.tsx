@@ -171,16 +171,16 @@ export default function AIPage() {
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch(`${BASE}/api/ai/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, model, history, stream: true }),
-        signal: controller.signal,
-      });
+      const useStream = typeof Response !== "undefined" && typeof ReadableStream !== "undefined" && typeof ReadableStream.prototype?.getReader === "function";
 
-      if (!response.ok) throw new Error("Stream failed");
-
-      if (!response.body || typeof response.body.getReader !== "function") {
+      if (!useStream) {
+        const response = await fetch(`${BASE}/api/ai/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: msg, model, history, stream: false }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Request failed");
         const data = await response.json();
         const content = data.content || "";
         setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content, streaming: false } : m));
@@ -188,6 +188,14 @@ export default function AIPage() {
           updateConversation(currentConvId, { messages: [...messages, userMsg, { ...assistantMsg, content, streaming: false }], model });
         }
       } else {
+        const response = await fetch(`${BASE}/api/ai/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: msg, model, history, stream: true }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) throw new Error("Stream failed");
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullContent = "";
