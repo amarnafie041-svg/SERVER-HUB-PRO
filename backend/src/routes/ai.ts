@@ -82,9 +82,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     // Use frontend thinking param if provided, otherwise use model default
     const thinkingMode = thinking !== undefined ? Boolean(thinking) : modelConfig.thinking;
     if (thinkingMode !== undefined) {
-      requestBody.extra_body = {
-        chat_template_kwargs: { thinking: thinkingMode },
-      };
+      requestBody.chat_template_kwargs = { thinking: thinkingMode };
     }
 
     if (doStream) {
