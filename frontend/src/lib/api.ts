@@ -123,6 +123,11 @@ export const api = {
   clearActivity: () => request<{ success: boolean }>("/api/activity", { method: "DELETE" }),
 
   getDomainInfo: () => request<any>("/api/domains/info"),
+  updateDomainInfo: (data: { custom_subdomain?: string; custom_port?: number }) =>
+    request<any>("/api/domains/info", { method: "PUT", body: JSON.stringify(data) }),
+  getAiSettings: () => request<any>("/api/ai/settings"),
+  updateAiSettings: (data: { gemini_api_key?: string }) =>
+    request<any>("/api/ai/settings", { method: "PUT", body: JSON.stringify(data) }),
   getHostingStatus: () => request<any>("/api/hosting/status"),
   getHostingLanguages: () => request<any>("/api/hosting/languages"),
   getHostingTemplates: () => request<any>("/api/hosting/templates"),

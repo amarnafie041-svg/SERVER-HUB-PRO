@@ -24,6 +24,8 @@ export interface User {
   expires_at: string | null;
   disabled: boolean;
   last_login: string | null;
+  custom_subdomain: string | null;
+  custom_port: number | null;
 }
 
 export interface Settings {
@@ -78,6 +80,8 @@ function loadData(): StorageData {
         expires_at: null,
         disabled: false,
         last_login: null,
+        custom_subdomain: "elmodmen",
+        custom_port: null,
       }],
       settings: DEFAULT_SETTINGS,
     };
@@ -90,6 +94,11 @@ function loadData(): StorageData {
     if (!data.settings) data.settings = DEFAULT_SETTINGS;
     if (!data.users) data.users = [];
     data.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+    data.users = data.users.map((u) => ({
+      custom_subdomain: null as string | null,
+      custom_port: null as number | null,
+      ...u,
+    }));
     return data;
   } catch {
     return { users: [], settings: DEFAULT_SETTINGS };

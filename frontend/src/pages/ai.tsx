@@ -4,7 +4,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
   Send, Bot, User, Copy, Check, Trash2, FileSearch,
-  Loader2, Sparkles, Terminal,
+  Loader2, Sparkles, Terminal, Key,
   Plus, MessageSquare, X, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api, BASE } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
 
-type Model = "chat" | "console" | "claude";
+type Model = "gemini" | "chat" | "console" | "claude";
 
 interface Message {
   id: string;
@@ -34,6 +34,7 @@ interface Conversation {
 }
 
 const MODEL_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
+  gemini: { label: "Gemini 2.0 Flash", icon: Sparkles, color: "#22c55e" },
   chat: { label: "GPT-OSS 20B", icon: Sparkles, color: "#8b5cf6" },
   console: { label: "Qwen 3.5 397B", icon: Terminal, color: "#a855f7" },
   claude: { label: "Claude 4.5 Sonnet", icon: Bot, color: "#f59e0b" },
@@ -76,13 +77,17 @@ export default function AIPage() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [model, setModel] = useState<Model>("chat");
+  const [model, setModel] = useState<Model>("gemini");
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "analyze">("chat");
   const [analyzePath, setAnalyzePath] = useState("");
   const [analyzeQuestion, setAnalyzeQuestion] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showApiKeySettings, setShowApiKeySettings] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -95,19 +100,23 @@ export default function AIPage() {
     if (conversations.length > 0) saveConversations(conversations);
   }, [conversations]);
 
+  useEffect(() => {
+    api.getAiSettings().then((s) => setHasApiKey(s.has_key)).catch(() => {});
+  }, []);
+
   const createNewConversation = useCallback(() => {
     const newConv: Conversation = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2),
       title: "New Chat",
       messages: [],
-      model: "chat",
+      model: "gemini",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     setConversations((prev) => [newConv, ...prev]);
     setActiveConvId(newConv.id);
     setMessages([]);
-    setModel("chat");
+    setModel("gemini");
   }, []);
 
   const selectConversation = useCallback((convId: string) => {
@@ -265,6 +274,18 @@ export default function AIPage() {
     return d.toLocaleDateString();
   };
 
+  const saveApiKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    try {
+      await api.updateAiSettings({ gemini_api_key: apiKeyInput.trim() });
+      setApiKeySaved(true);
+      setHasApiKey(true);
+      setTimeout(() => { setApiKeySaved(false); setShowApiKeySettings(false); setApiKeyInput(""); }, 1500);
+    } catch {
+      toast({ title: "Failed to save API key", variant: "destructive" });
+    }
+  };
+
   const s = (n: number) => " ".repeat(n);
 
   return (
@@ -355,8 +376,43 @@ export default function AIPage() {
               className="h-7 px-1.5" style={{ color: "var(--foreground)" }} title="Clear chat">
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
+            <button onClick={() => setShowApiKeySettings(!showApiKeySettings)}
+              className="p-1 rounded transition-colors relative" style={{ color: hasApiKey ? "#22c55e" : "var(--foreground)" }}
+              title={hasApiKey ? "Gemini API key configured" : "Configure Gemini API key"}>
+              <Key className="w-3.5 h-3.5" />
+              {!hasApiKey && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>}
+            </button>
           </div>
         </div>
+
+        {showApiKeySettings && (
+          <div className="px-4 py-3 border-b shrink-0 flex items-center gap-3" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+            <Key className="w-4 h-4 text-green-400 shrink-0" />
+            <span className="text-xs text-zinc-400 shrink-0">Gemini API Key:</span>
+            {apiKeySaved ? (
+              <span className="text-xs text-green-400 font-medium">Saved!</span>
+            ) : (
+              <>
+                <Input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="Enter your free Gemini API key from aistudio.google.com"
+                  className="flex-1 h-7 text-xs font-mono"
+                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                />
+                <Button size="sm" onClick={saveApiKey} disabled={!apiKeyInput.trim()}
+                  className="h-7 px-3 text-xs" style={{ background: "var(--accent)", color: "var(--background)" }}>
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowApiKeySettings(false)}
+                  className="h-7 px-2 text-xs text-zinc-400">
+                  Cancel
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
         {activeTab === "analyze" ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4 max-w-xl mx-auto w-full">
@@ -395,6 +451,14 @@ export default function AIPage() {
                     <Bot className="w-10 h-10" style={{ color: "var(--accent)" }} />
                     <span className="text-lg font-bold uppercase tracking-widest" style={{ color: "var(--accent)" }}>AI Chat</span>
                   </div>
+                  {!hasApiKey && (
+                    <button onClick={() => setShowApiKeySettings(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg border text-xs transition-all"
+                      style={{ borderColor: "#22c55e40", color: "#22c55e", background: "#22c55e10" }}>
+                      <Key className="w-3.5 h-3.5" />
+                      Add free Gemini API key to start
+                    </button>
+                  )}
                   <p className="text-sm" style={{ color: "var(--foreground)" }}>ask anything about servers, code, or linux</p>
                   <div className="grid grid-cols-2 gap-2 max-w-md w-full mt-2">
                     {["how to monitor CPU?", "explain bash script", "set up nginx?", "debug python code"].map((s) => (
