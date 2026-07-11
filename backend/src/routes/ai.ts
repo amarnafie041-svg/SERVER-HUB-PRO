@@ -28,6 +28,24 @@ function getGeminiApiKey(): string {
 }
 
 const AI_MODELS: Record<string, ModelConfig> = {
+  nemotron: {
+    provider: "nvidia",
+    key: NVIDIA_API_KEY,
+    model: "nvidia/llama-3.3-70b-instruct-fast",
+    temp: 0.6,
+    top_p: 0.9,
+    max_tokens: 4096,
+    name: "Nemotron 70B Fast",
+  },
+  deepseek: {
+    provider: "nvidia",
+    key: NVIDIA_API_KEY,
+    model: "deepseek-ai/deepseek-r1",
+    temp: 0.6,
+    top_p: 0.95,
+    max_tokens: 4096,
+    name: "DeepSeek R1",
+  },
   gemini: {
     provider: "gemini",
     model: "gemini-2.0-flash",
@@ -38,20 +56,20 @@ const AI_MODELS: Record<string, ModelConfig> = {
   chat: {
     provider: "nvidia",
     key: NVIDIA_API_KEY,
-    model: "openai/gpt-oss-20b",
-    temp: 1.0,
-    top_p: 1.0,
+    model: "meta/llama-3.3-70b-instruct",
+    temp: 0.7,
+    top_p: 0.95,
     max_tokens: 4096,
-    name: "GPT-OSS 20B",
+    name: "Llama 3.3 70B",
   },
   console: {
     provider: "nvidia",
     key: NVIDIA_API_KEY,
-    model: "qwen/qwen3.5-397b-a17b",
+    model: "qwen/qwq-32b",
     temp: 0.6,
     top_p: 0.95,
     max_tokens: 4096,
-    name: "Qwen 3.5 397B",
+    name: "QwQ 32B",
   },
   claude: {
     provider: "claude",

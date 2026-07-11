@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api, BASE } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
 
-type Model = "gemini" | "chat" | "console" | "claude";
+type Model = "nemotron" | "deepseek" | "gemini" | "chat" | "console" | "claude";
 
 interface Message {
   id: string;
@@ -34,9 +34,11 @@ interface Conversation {
 }
 
 const MODEL_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  gemini: { label: "Gemini 2.0 Flash", icon: Sparkles, color: "#22c55e" },
-  chat: { label: "GPT-OSS 20B", icon: Sparkles, color: "#8b5cf6" },
-  console: { label: "Qwen 3.5 397B", icon: Terminal, color: "#a855f7" },
+  nemotron: { label: "Nemotron 70B Fast", icon: Sparkles, color: "#76b900" },
+  deepseek: { label: "DeepSeek R1", icon: Terminal, color: "#3b82f6" },
+  gemini: { label: "Gemini 2.0 Flash", icon: Bot, color: "#22c55e" },
+  chat: { label: "Llama 3.3 70B", icon: Sparkles, color: "#8b5cf6" },
+  console: { label: "QwQ 32B", icon: Terminal, color: "#a855f7" },
   claude: { label: "Claude 4.5 Sonnet", icon: Bot, color: "#f59e0b" },
 };
 
@@ -77,7 +79,7 @@ export default function AIPage() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [model, setModel] = useState<Model>("gemini");
+  const [model, setModel] = useState<Model>("nemotron");
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "analyze">("chat");
   const [analyzePath, setAnalyzePath] = useState("");
@@ -109,14 +111,14 @@ export default function AIPage() {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2),
       title: "New Chat",
       messages: [],
-      model: "gemini",
+      model: "nemotron",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     setConversations((prev) => [newConv, ...prev]);
     setActiveConvId(newConv.id);
     setMessages([]);
-    setModel("gemini");
+    setModel("nemotron");
   }, []);
 
   const selectConversation = useCallback((convId: string) => {
