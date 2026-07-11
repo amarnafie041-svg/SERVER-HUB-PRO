@@ -88,7 +88,7 @@ function AppRoutes() {
       case "/admin": return user.role === "admin" ? <AdminPage /> : <Dashboard />;
       case "/settings": return user.role === "admin" ? <SettingsPage /> : <Dashboard />;
       case "/commands": return <CommandsPage />;
-      case "/docker": return <DockerPage />;
+      case "/docker": return user.role === "admin" ? <DockerPage /> : <Dashboard />;
       case "/hosting": return <HostingPage />;
       case "/domains": return <DomainsPage />;
       case "/activity": return user.role === "admin" ? <ActivityPage /> : <Dashboard />;

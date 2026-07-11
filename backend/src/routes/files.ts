@@ -14,6 +14,12 @@ const execFileAsync = promisify(execFile);
 
 const router: IRouter = Router();
 
+// System files hidden from non-admin users
+const HIDDEN_SYSTEM_ITEMS = new Set([
+  ".cache", ".config", ".local", "bin", "projects", "tmp",
+  ".bashrc", ".sandbox-shell.sh", ".sandboxrc", ".zshrc",
+]);
+
 const FALLBACK_BASE_DIR = process.env.FILES_BASE_DIR || process.env.HOME || process.env.USERPROFILE || "/";
 
 function safePath(requestPath: string, baseDir?: string): string | null {
@@ -144,12 +150,17 @@ router.get("/files/list", authenticate, async (req: Request, res: Response): Pro
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
+    const isAdmin = req.user?.role === "admin";
     await ensureUserIsolation(userId, username);
     const reqPath = (req.query.path as string) || "/";
 
     if (dockerManager.isAvailable) {
-      const items = await dockerManager.execFileList(username, reqPath);
+      let items = await dockerManager.execFileList(username, reqPath);
       if (items) {
+        // Hide system files from non-admin users at sandbox root
+        if (!isAdmin && reqPath === "/") {
+          items = items.filter((item: any) => !HIDDEN_SYSTEM_ITEMS.has(item.name));
+        }
         res.json({ path: reqPath, items });
         return;
       }
@@ -162,9 +173,16 @@ router.get("/files/list", authenticate, async (req: Request, res: Response): Pro
     if (!stat.isDirectory()) { res.status(400).json({ error: "Not a directory" }); return; }
 
     const entries = fs.readdirSync(dirPath);
-    const items = entries
+    let items = entries
       .map((entry) => getFileInfo(path.join(dirPath, entry)))
-      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    // Hide system files from non-admin users (only show at sandbox root)
+    if (!isAdmin && reqPath === "/") {
+      items = items.filter((item) => !HIDDEN_SYSTEM_ITEMS.has(item.name));
+    }
+
+    items = items
       .sort((a, b) => {
         if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
         return a.name.localeCompare(b.name);
@@ -451,6 +469,7 @@ router.get("/files/search", authenticate, async (req: Request, res: Response): P
   try {
     const username = req.user?.username || "";
     const userId = req.user?.userId || "";
+    const isAdmin = req.user?.role === "admin";
     await ensureUserIsolation(userId, username);
     const q = req.query.q as string;
     const searchPath = (req.query.path as string) || "/home/runner";
@@ -487,7 +506,11 @@ router.get("/files/search", authenticate, async (req: Request, res: Response): P
     }
 
     walkDir(resolved);
-    res.json(results.filter(Boolean));
+    let searchResults = results.filter(Boolean);
+    if (!isAdmin) {
+      searchResults = searchResults.filter((item) => item && !HIDDEN_SYSTEM_ITEMS.has(item.name));
+    }
+    res.json(searchResults);
   } catch (err) {
     logger.error({ err }, "Failed to search files");
     res.status(500).json({ error: "Search failed" });
