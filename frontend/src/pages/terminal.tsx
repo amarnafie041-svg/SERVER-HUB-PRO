@@ -5,10 +5,9 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import "xterm/css/xterm.css";
 import {
-  Plus, X, RotateCcw, RefreshCcw, Trash2, TerminalSquare,
-  Maximize2, Minimize2, Play, Square, FileCode,
-  ZoomIn, ZoomOut, Keyboard, GitBranch, Terminal as TerminalIcon,
-  FileText, ShieldCheck, Package, Download, Globe,
+  Plus, X, TerminalSquare, Play, Square, RotateCcw,
+  ZoomIn, ZoomOut, ShieldCheck, Settings,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -33,36 +32,26 @@ interface TabResources {
   reconnectAttempts: number;
 }
 
+interface StartupConfig {
+  buildCmd: string;
+  runCmd: string;
+}
+
 const MAX_RECONNECT = 99999;
 const STORED_SESSION_KEY = "sh_terminal_session";
+const STARTUP_KEY = "sh_startup_config";
 
-const QUICK_CMDS = [
-  { label: "clear", icon: Trash2, cmd: "clear\r", color: "#6b7280" },
-  { label: "ls -la", icon: FileText, cmd: "ls -la\r", color: "#22c55e" },
-  { label: "nano", icon: FileText, cmd: "nano ", color: "#22c55e" },
-  { label: "git clone + run", icon: GitBranch, cmd: "git clone <url> && cd <repo> && npm install && npm start\r", color: "#f05032" },
-  { label: "auto-serve", icon: Globe, cmd: "auto-serve \"python3 -m http.server {PORT}\" 8000\r", color: "#8b5cf6" },
-  { label: "python3", icon: FileCode, cmd: "python3\r", color: "#3776ab" },
-  { label: "npm start", icon: TerminalIcon, cmd: "npm start\r", color: "#cb3837" },
-  { label: "git clone", icon: GitBranch, cmd: "git clone ", color: "#f05032" },
-  { label: "pip install -r", icon: FileCode, cmd: "pip install -r requirements.txt\r", color: "#ff7b72" },
-  { label: "node index.js", icon: TerminalIcon, cmd: "node index.js\r", color: "#58a6ff" },
-  { label: "php -S", icon: TerminalIcon, cmd: "auto-serve \"php -S 0.0.0.0:{PORT}\" 8000\r", color: "#8892bf" },
-  { label: "cat /etc/os-release", icon: FileText, cmd: "cat /etc/os-release\r", color: "#d29922" },
-  { label: "ps aux", icon: TerminalSquare, cmd: "ps aux\r", color: "#bc8cff" },
-  { label: "htop", icon: TerminalSquare, cmd: "htop\r", color: "#22c55e" },
-  { label: "curl ifconfig.me", icon: TerminalIcon, cmd: "curl -s ifconfig.me\r", color: "#39c5cf" },
-];
+function loadStartup(): StartupConfig {
+  try {
+    const raw = localStorage.getItem(STARTUP_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { buildCmd: "", runCmd: "" };
+}
 
-const VIRTUAL_KEYS = [
-  { label: "Tab", value: "\t", color: "#6d28d9" },
-  { label: "Ctrl", value: "ctrl", color: "#7c3aed", isCtrl: true },
-  { label: "Esc", value: "\x1b", color: "#ef4444" },
-  { label: "▲", value: "\x1b[A", color: "#8b5cf6" },
-  { label: "▼", value: "\x1b[B", color: "#8b5cf6" },
-  { label: "◀", value: "\x1b[D", color: "#8b5cf6" },
-  { label: "▶", value: "\x1b[C", color: "#8b5cf6" },
-];
+function saveStartup(cfg: StartupConfig) {
+  localStorage.setItem(STARTUP_KEY, JSON.stringify(cfg));
+}
 
 const S = (n: number) => " ".repeat(n);
 
@@ -101,47 +90,10 @@ export default function TerminalPage() {
   const [initialized, setInitialized] = useState(false);
   const [showKb, setShowKb] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [showQuickCmds, setShowQuickCmds] = useState(false);
-  const [showRunDialog, setShowRunDialog] = useState(false);
-  const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [runCmd, setRunCmd] = useState("");
-  const [installCmd, setInstallCmd] = useState("");
 
-  const RUN_PRESETS = [
-    { label: "▶ python3 main.py", cmd: "python3 main.py", lang: "py" },
-    { label: "▶ node index.js", cmd: "node index.js", lang: "js" },
-    { label: "▶ npm start", cmd: "npm start", lang: "js" },
-    { label: "▶ python3 app.py", cmd: "python3 app.py", lang: "py" },
-    { label: "▶ php index.php", cmd: "php index.php", lang: "php" },
-    { label: "▶ go run main.go", cmd: "go run main.go", lang: "go" },
-    { label: "▶ bash script.sh", cmd: "bash script.sh", lang: "sh" },
-    { label: "═════════════", cmd: "", lang: "sep" },
-    { label: "🌐 Serve HTTP 8000", cmd: "auto-serve \"python3 -m http.server {PORT}\" 8000", lang: "py" },
-    { label: "🌐 Serve Node.js", cmd: "auto-serve \"node server.js --port {PORT}\" 3000", lang: "js" },
-    { label: "🌐 Serve PHP", cmd: "auto-serve \"php -S 0.0.0.0:{PORT}\" 8000", lang: "php" },
-    { label: "🌐 npm run dev (Vite)", cmd: "auto-serve \"npx vite --port {PORT}\" 5173", lang: "js" },
-    { label: "🌐 npx serve", cmd: "auto-serve \"npx serve -l {PORT}\" 3000", lang: "js" },
-    { label: "═════════════", cmd: "", lang: "sep" },
-    { label: "📦 git clone + install + run", cmd: "git clone <url> && cd <repo> && npm install && npm start", lang: "js" },
-    { label: "📦 git clone + pip install", cmd: "git clone <url> && cd <repo> && pip install -r requirements.txt && python3 main.py", lang: "py" },
-    { label: "📦 git clone + composer", cmd: "git clone <url> && cd <repo> && composer install && php -S 0.0.0.0:8000", lang: "php" },
-  ];
-
-  const INSTALL_PRESETS = [
-    { label: "pip install -r requirements.txt", cmd: "pip install -r requirements.txt", lang: "py" },
-    { label: "npm install", cmd: "npm install", lang: "js" },
-    { label: "yarn install", cmd: "yarn install", lang: "js" },
-    { label: "pnpm install", cmd: "pnpm install", lang: "js" },
-    { label: "go mod tidy", cmd: "go mod tidy", lang: "go" },
-    { label: "composer install", cmd: "composer install", lang: "php" },
-    { label: "pip install flask", cmd: "pip install flask", lang: "py" },
-    { label: "pip install django", cmd: "pip install django", lang: "py" },
-    { label: "pip install fastapi", cmd: "pip install fastapi uvicorn", lang: "py" },
-    { label: "bundle install (Ruby)", cmd: "bundle install", lang: "ruby" },
-    { label: "gem install rails", cmd: "gem install rails", lang: "ruby" },
-    { label: "cargo build (Rust)", cmd: "cargo build", lang: "rust" },
-    { label: "apt install package", cmd: "apt install <package> -y", lang: "sh" },
-  ];
+  const [startup, setStartup] = useState<StartupConfig>(loadStartup);
+  const [showStartupPanel, setShowStartupPanel] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const resources = useRef<Record<string, TabResources>>({});
   const containerRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -228,11 +180,6 @@ export default function TerminalPage() {
       ws.send(JSON.stringify({ type: "input", data: text }));
   };
 
-  const handleQuickCmd = (cmd: string) => {
-    sendToTerminal(cmd + (cmd.endsWith(" ") ? "" : "\r"));
-    setShowQuickCmds(false);
-  };
-
   const connectWs = useCallback((tabId: string, sessionId: string) => {
     const res = getRes(tabId);
     if (res.destroyed) return;
@@ -270,6 +217,7 @@ export default function TerminalPage() {
         if (msg.type === "output" && term) term.write(msg.data);
         else if (msg.type === "exit") {
           serverClosed = true;
+          setIsRunning(false);
           setStatus(tabId, "offline");
           if (res.heartbeat) { clearInterval(res.heartbeat); res.heartbeat = null; }
         }
@@ -484,35 +432,54 @@ export default function TerminalPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const clearActive = () => { if (activeTabId) getRes(activeTabId).term?.clear(); };
-  const resetActive = () => { if (activeTabId) getRes(activeTabId).term?.reset(); };
-  const runActive = () => sendToTerminal("\r");
-  const stopActive = () => sendToTerminal("\x03");
-
-  const handleRunCmd = () => {
-    if (runCmd.trim()) { sendToTerminal(runCmd.trim() + "\r"); setShowRunDialog(false); setRunCmd(""); }
+  const handleSaveStartup = () => {
+    saveStartup(startup);
+    setShowStartupPanel(false);
+    toast({ title: "Startup commands saved" });
   };
 
-  const handleInstallCmd = () => {
-    if (installCmd.trim()) { sendToTerminal(installCmd.trim() + "\r"); setShowInstallDialog(false); setInstallCmd(""); }
+  const handleStart = () => {
+    const { buildCmd, runCmd } = startup;
+    if (!runCmd.trim()) {
+      toast({ title: "Set run command first", variant: "destructive" });
+      setShowStartupPanel(true);
+      return;
+    }
+    const status = statuses[activeTabId || ""];
+    if (status !== "connected") {
+      toast({ title: "Terminal not connected", variant: "destructive" });
+      return;
+    }
+    if (buildCmd.trim()) {
+      sendToTerminal(`${buildCmd.trim()} && ${runCmd.trim()}\r`);
+    } else {
+      sendToTerminal(`${runCmd.trim()}\r`);
+    }
+    setIsRunning(true);
   };
 
-  const restartActive = () => {
-    if (!activeTabId) return;
-    const tab = tabs.find((t) => t.id === activeTabId);
-    if (!tab) return;
-    const res = getRes(activeTabId);
-    res.destroyed = true;
-    if (res.ws) { res.ws.onclose = null; res.ws.close(); }
-    if (res.heartbeat) clearInterval(res.heartbeat);
-    if (res.resizeObserver) res.resizeObserver.disconnect();
-    if (res.term) res.term.dispose();
-    delete resources.current[activeTabId];
-    setStatuses((prev) => ({ ...prev, [activeTabId]: "connecting" }));
+  const handleStop = () => {
+    sendToTerminal("\x03");
+    setIsRunning(false);
+  };
+
+  const handleRestart = () => {
+    const { runCmd } = startup;
+    if (!runCmd.trim()) {
+      toast({ title: "Set run command first", variant: "destructive" });
+      setShowStartupPanel(true);
+      return;
+    }
+    const status = statuses[activeTabId || ""];
+    if (status !== "connected") {
+      toast({ title: "Terminal not connected", variant: "destructive" });
+      return;
+    }
+    sendToTerminal("\x03");
     setTimeout(() => {
-      const el = containerRefs.current[activeTabId];
-      if (el) mountTerminal(activeTabId, el, tab.sessionId);
-    }, 150);
+      sendToTerminal(`${runCmd.trim()}\r`);
+      setIsRunning(true);
+    }, 600);
   };
 
   const activeStatus = activeTabId ? statuses[activeTabId] : undefined;
@@ -571,18 +538,16 @@ export default function TerminalPage() {
         .terminal-container .xterm-rows .xterm-chars { unicode-bidi: plaintext; direction: auto; }
         .terminal-container .xterm-rows .xterm-char-measure-element { font-family: "Noto Naskh Arabic", "Amiri", "JetBrains Mono", monospace !important; }
         .terminal-container .xterm-rows .xterm-char-measure-element span { font-family: "Noto Naskh Arabic", "Amiri", "JetBrains Mono", monospace !important; }
-        .run-dropdown-enter { animation: dropFadeIn 0.15s ease-out; }
-        @keyframes dropFadeIn { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .virt-kb-btn { min-width: 44px; min-height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid rgba(139,92,246,0.2); background: rgba(20,10,36,0.8); color: #a1a1aa; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.12s; user-select: none; backdrop-filter: blur(4px); }
-        .virt-kb-btn:active { transform: scale(0.92); background: rgba(139,92,246,0.25); color: white; box-shadow: 0 0 12px rgba(139,92,246,0.3); }
-        .quick-cmd-btn { padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.12s; border: 1px solid transparent; white-space: nowrap; user-select: none; background: rgba(255,255,255,0.02); }
-        .quick-cmd-btn:hover { background: rgba(255,255,255,0.06); }
-        .quick-cmd-btn:active { transform: scale(0.95); }
+        @keyframes panelSlide { from { max-height: 0; opacity: 0; } to { max-height: 200px; opacity: 1; } }
+        .startup-panel { animation: panelSlide 0.2s ease-out; overflow: hidden; }
+        .ctrl-btn { display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; font-weight: 700; font-size: 11px; padding: 0 14px; height: 32px; transition: all 0.15s; cursor: pointer; user-select: none; white-space: nowrap; }
+        .ctrl-btn:active { transform: scale(0.95); }
+        .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .startup-input { flex: 1; height: 30px; padding: 0 10px; font-size: 11px; font-family: "JetBrains Mono", monospace; border-radius: 8px; border: 1px solid rgba(139,92,246,0.2); background: var(--background); color: var(--foreground); outline: none; transition: border-color 0.15s; }
+        .startup-input:focus { border-color: rgba(139,92,246,0.5); }
+        .startup-input::placeholder { color: rgba(161,161,170,0.4); }
         .tab-btn { border-radius: 8px; cursor: pointer; transition: all 0.15s; user-select: none; }
         .tab-btn:hover { background: rgba(255,255,255,0.04); }
-        .preset-btn { padding: 4px 10px; border-radius: 8px; font-size: 10px; font-family: monospace; border: 1px solid; transition: all 0.12s; cursor: pointer; user-select: none; }
-        .preset-btn:hover { opacity: 0.8; transform: translateY(-1px); }
-        .preset-btn:active { transform: scale(0.95); }
         @media (max-width: 820px) {
           .terminal-container .xterm { padding: 4px; }
           .xterm { font-size: 12px !important; }
@@ -603,10 +568,13 @@ export default function TerminalPage() {
         }
       `}</style>
       <div className={`flex flex-col overflow-hidden ${fullscreen ? "fixed inset-0 z-50" : "h-full"}`} style={{ background: terminalBg }}>
+
+        {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-0 sm:gap-1 px-1 sm:px-2 py-0.5 border-b shrink-0"
           style={{ background: headerBg, borderColor: "var(--border)" }}
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag}>
 
+          {/* Tabs */}
           <div ref={tabsScrollRef}
             className="flex items-center gap-0.5 flex-1 overflow-x-auto min-w-0 scrollbar-none cursor-grab active:cursor-grabbing py-0.5"
             style={{ scrollBehavior: "smooth" }}>
@@ -633,61 +601,112 @@ export default function TerminalPage() {
             </Button>
           </div>
 
-          <div className="flex items-center gap-0.5 shrink-0 flex-wrap">
+          {/* Controls */}
+          <div className="flex items-center gap-1 shrink-0 flex-wrap py-0.5">
+
             {activeTabId && (
               <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md shrink-0 text-zinc-600 font-mono">
                 <StatusDot status={activeStatus} />
                 {statusLabel(activeStatus)}
               </span>
             )}
-            <div className="flex items-center gap-0.5">
-              <button onClick={() => { setRunCmd(""); setShowRunDialog(true); }} title="Run Command" className="h-8 w-8 flex items-center justify-center rounded-lg text-green-400/70 hover:text-green-300 hover:bg-white/5 transition-all"><Play className="w-3.5 h-3.5" /></button>
-              <button onClick={restartActive} title="Restart Terminal" className="h-8 w-8 flex items-center justify-center rounded-lg text-yellow-400/70 hover:text-yellow-300 hover:bg-white/5 transition-all"><RefreshCcw className="w-3.5 h-3.5" /></button>
-              <button onClick={stopActive} title="Stop (Ctrl+C)" className="h-8 w-8 flex items-center justify-center rounded-lg text-red-400/70 hover:text-red-300 hover:bg-white/5 transition-all"><Square className="w-3.5 h-3.5" /></button>
-            </div>
+
+            {/* Startup controls */}
+            <button onClick={() => setShowStartupPanel(!showStartupPanel)}
+              title="Startup Config"
+              className="ctrl-btn h-8 !px-2 text-zinc-400 hover:text-white hover:bg-white/5 !rounded-lg"
+              style={{ background: "transparent" }}>
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+
+            <button onClick={handleStart}
+              title="Start"
+              disabled={!startup.runCmd.trim()}
+              className="ctrl-btn h-8 !px-2.5 text-green-400 hover:text-green-300 hover:bg-green-500/10 !rounded-lg"
+              style={{ background: "transparent" }}>
+              <Play className="w-4 h-4" />
+              <span className="hidden sm:inline text-[11px]">Start</span>
+            </button>
+
+            <button onClick={handleRestart}
+              title="Restart"
+              disabled={!startup.runCmd.trim()}
+              className="ctrl-btn h-8 !px-2.5 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 !rounded-lg"
+              style={{ background: "transparent" }}>
+              <RotateCcw className="w-4 h-4" />
+              <span className="hidden sm:inline text-[11px]">Restart</span>
+            </button>
+
+            <button onClick={handleStop}
+              title="Stop"
+              className="ctrl-btn h-8 !px-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 !rounded-lg"
+              style={{ background: "transparent" }}>
+              <Square className="w-4 h-4" />
+              <span className="hidden sm:inline text-[11px]">Stop</span>
+            </button>
+
+            {/* Font size */}
             <div className="flex items-center gap-0.5 pl-1.5 ml-1 border-l" style={{ borderColor: "var(--border)" }}>
-              <button onClick={() => { setInstallCmd(""); setShowInstallDialog(true); }} title="Install Packages" className="h-8 w-8 flex items-center justify-center rounded-lg text-cyan-400/70 hover:text-cyan-300 hover:bg-white/5 transition-all"><Package className="w-3.5 h-3.5" /></button>
-              <button onClick={clearActive} title="Clear" className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
-              <button onClick={resetActive} title="Reset" className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all"><RotateCcw className="w-3.5 h-3.5" /></button>
-            </div>
-            <div className="relative">
-              <button onClick={() => setShowQuickCmds(!showQuickCmds)}
-                title="Quick Commands" className="h-8 w-8 flex items-center justify-center rounded-lg text-cyan-400/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
-                <TerminalIcon className="w-3.5 h-3.5" />
+              <button onClick={() => setFontSize((s) => Math.max(10, s - 1))} title="Decrease font"
+                className="ctrl-btn h-8 !px-2 text-zinc-500 hover:text-white hover:bg-white/5 !rounded-lg"
+                style={{ background: "transparent" }}>
+                <ZoomOut className="w-4 h-4" />
               </button>
-              {showQuickCmds && (
-                <div className="absolute left-0 top-full mt-1 z-50 rounded-xl border shadow-2xl p-2 run-dropdown-enter min-w-[200px]"
-                  style={{ background: headerBg, borderColor: "var(--border)" }}
-                  onMouseLeave={() => setShowQuickCmds(false)}>
-                  <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Quick Commands</div>
-                  <div className="space-y-0.5">
-                    {QUICK_CMDS.map((qc) => (
-                      <button key={qc.label} onClick={() => handleQuickCmd(qc.cmd)}
-                        className="quick-cmd-btn w-full flex items-center gap-2 text-left text-zinc-400 hover:text-white"
-                        style={{ borderColor: `${qc.color}20` }}>
-                        <qc.icon className="w-3 h-3 shrink-0" style={{ color: qc.color }} />
-                        <span className="font-mono text-[10px] truncate">{qc.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-0.5 pl-1.5 ml-1 border-l" style={{ borderColor: "var(--border)" }}>
-              {!isMobile && (
-                <>
-                  <button onClick={() => setFontSize((s) => Math.max(10, s - 1))} title="Decrease font" className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all"><ZoomOut className="w-3.5 h-3.5" /></button>
-                  <span className="text-[10px] font-mono text-zinc-600 w-4 text-center">{fontSize}</span>
-                  <button onClick={() => setFontSize((s) => Math.min(28, s + 1))} title="Increase font" className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all"><ZoomIn className="w-3.5 h-3.5" /></button>
-                </>
-              )}
-              <button onClick={() => setFullscreen(!fullscreen)} title="Fullscreen" className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
-                {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <span className="text-[10px] font-mono text-zinc-600 w-5 text-center select-none">{fontSize}</span>
+              <button onClick={() => setFontSize((s) => Math.min(28, s + 1))} title="Increase font"
+                className="ctrl-btn h-8 !px-2 text-zinc-500 hover:text-white hover:bg-white/5 !rounded-lg"
+                style={{ background: "transparent" }}>
+                <ZoomIn className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
 
+        {/* Startup Config Panel */}
+        {showStartupPanel && (
+          <div className="startup-panel border-b px-3 py-2.5 shrink-0"
+            style={{ background: headerBg, borderColor: "var(--border)" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Settings className="w-3.5 h-3.5 text-accent" />
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Startup Configuration</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-zinc-500 w-16 shrink-0 text-right">Build</span>
+                <input
+                  value={startup.buildCmd}
+                  onChange={(e) => setStartup({ ...startup, buildCmd: e.target.value })}
+                  placeholder="npm install && npm run build  (optional)"
+                  className="startup-input"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-zinc-500 w-16 shrink-0 text-right">Run</span>
+                <input
+                  value={startup.runCmd}
+                  onChange={(e) => setStartup({ ...startup, runCmd: e.target.value })}
+                  placeholder="node index.js  /  python3 main.py  /  php index.php"
+                  className="startup-input"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveStartup(); }}
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <button onClick={handleSaveStartup}
+                  className="ctrl-btn h-7 text-[10px] font-bold"
+                  style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.3), rgba(139,92,246,0.15))", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.2)" }}>
+                  Save
+                </button>
+                <span className="text-[9px] text-zinc-600 font-mono">
+                  {startup.buildCmd.trim() ? `Build: ${startup.buildCmd.slice(0, 30)}...` : "No build command"}
+                  {" | "}
+                  {startup.runCmd.trim() ? `Run: ${startup.runCmd.slice(0, 30)}...` : "No run command"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Terminal content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           <div className="flex-1 relative overflow-hidden min-h-0">
             {tabs.length === 0 ? (
@@ -711,46 +730,37 @@ export default function TerminalPage() {
           </div>
         </div>
 
+        {/* Mobile keyboard */}
         {isMobile && (
           <div className="border-t shrink-0" style={{ background: "linear-gradient(180deg, rgba(20,10,36,0.95), rgba(10,6,22,0.98))", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}>
             <div className="flex items-center justify-between px-3 py-1 border-b" style={{ borderColor: "var(--border)" }}>
               <button onClick={() => setShowKb(!showKb)}
                 className="flex items-center gap-1.5 text-[10px] text-zinc-400 hover:text-white transition-colors py-1 px-2 rounded-lg hover:bg-white/5">
-                <Keyboard className="w-3.5 h-3.5" />
                 {showKb ? "Hide" : "Keys"}
               </button>
               <div className="flex items-center gap-1.5">
-                <button onClick={() => { setRunCmd(""); setShowRunDialog(true); }} className="text-[10px] font-medium text-green-400/80 hover:text-green-300 px-2.5 py-1 rounded-lg hover:bg-green-500/10 transition-all">Run</button>
-                <button onClick={restartActive} className="text-[10px] font-medium text-yellow-400/80 hover:text-yellow-300 px-2.5 py-1 rounded-lg hover:bg-yellow-500/10 transition-all">Restart</button>
-                <button onClick={stopActive} className="text-[10px] font-medium text-red-400/80 hover:text-red-300 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-all">Stop</button>
+                <button onClick={handleStart} disabled={!startup.runCmd.trim()}
+                  className="text-[10px] font-medium text-green-400/80 hover:text-green-300 px-2.5 py-1 rounded-lg hover:bg-green-500/10 transition-all disabled:opacity-40">Start</button>
+                <button onClick={handleRestart} disabled={!startup.runCmd.trim()}
+                  className="text-[10px] font-medium text-yellow-400/80 hover:text-yellow-300 px-2.5 py-1 rounded-lg hover:bg-yellow-500/10 transition-all disabled:opacity-40">Restart</button>
+                <button onClick={handleStop}
+                  className="text-[10px] font-medium text-red-400/80 hover:text-red-300 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-all">Stop</button>
                 <span className="text-[9px] text-zinc-700 font-mono ml-1 px-1.5 py-0.5 rounded-md bg-white/5">{tabs.length}</span>
               </div>
             </div>
             {showKb && (
               <div className="p-2 overflow-x-auto">
-                <div className="flex gap-1.5 mb-2 overflow-x-auto scrollbar-none pb-0.5">
-                  {QUICK_CMDS.slice(0, 8).map((qc) => (
-                    <button key={qc.label} onClick={() => handleQuickCmd(qc.cmd + "\r")}
-                      className="quick-cmd-btn flex items-center gap-1 text-zinc-400 hover:text-white whitespace-nowrap"
-                      style={{ borderColor: `${qc.color}20` }}>
-                      <qc.icon className="w-3 h-3" style={{ color: qc.color }} />
-                      <span className="text-[10px] font-mono">{qc.label}</span>
-                    </button>
-                  ))}
-                </div>
                 <div className="flex gap-1.5 flex-wrap justify-center">
-                  {VIRTUAL_KEYS.map((key) => (
-                    <button key={key.label} onClick={() => {
+                  {[{ l: "Tab", v: "\t" }, { l: "Ctrl", v: "ctrl" }, { l: "Esc", v: "\x1b" },
+                    { l: "▲", v: "\x1b[A" }, { l: "▼", v: "\x1b[B" }, { l: "◀", v: "\x1b[D" }, { l: "▶", v: "\x1b[C" }].map((key) => (
+                    <button key={key.l} onClick={() => {
                       const { ws } = getRes(activeTabId!);
                       if (ws?.readyState === WebSocket.OPEN) {
-                        let toSend = key.value;
-                        if (key.isCtrl) toSend = "\x03";
-                        ws.send(JSON.stringify({ type: "input", data: toSend }));
+                        ws.send(JSON.stringify({ type: "input", data: key.l === "Ctrl" ? "\x03" : key.v }));
                       }
                     }}
-                      className={`virt-kb-btn ${key.isCtrl ? "min-w-[52px]" : ""}`}
-                      style={{ minWidth: key.label.length > 2 ? "52px" : "44px", minHeight: "38px", fontSize: "12px" }}>
-                      {key.label}
+                      className="min-w-[44px] min-h-[38px] flex items-center justify-center rounded-lg border border-purple-500/20 bg-gray-900/80 text-gray-400 text-xs font-semibold cursor-pointer active:scale-95 active:bg-purple-500/25 active:text-white transition-all">
+                      {key.l}
                     </button>
                   ))}
                 </div>
@@ -759,6 +769,7 @@ export default function TerminalPage() {
           </div>
         )}
 
+        {/* Status bar */}
         {activeTabId && tabs.length > 0 && !isMobile && (
           <div className="flex items-center justify-between px-3 py-1 border-t shrink-0 text-[10px] font-mono"
             style={{ background: headerBg, borderColor: "var(--border)" }}>
@@ -771,72 +782,13 @@ export default function TerminalPage() {
                 </span>
               )}
             </div>
-            <span className="text-zinc-700">{tabs.length} session(s)</span>
-          </div>
-        )}
-
-        {showRunDialog && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 animate-fadeIn" onClick={() => setShowRunDialog(false)}>
-            <div className="rounded-2xl border w-full max-w-lg p-4 md:p-5 shadow-2xl animate-scaleIn" style={{ background: "var(--card)", borderColor: "var(--border)" }} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2"><Play className="w-4 h-4 text-green-400" /> Run Command</h3>
-                <button onClick={() => setShowRunDialog(false)} className="text-zinc-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"><X className="w-3.5 h-3.5" /></button>
-              </div>
-              <div className="flex gap-2 mb-3">
-                <input value={runCmd} onChange={(e) => setRunCmd(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleRunCmd(); if (e.key === "Escape") setShowRunDialog(false); }}
-                  placeholder="Type your command..."
-                  className="flex-1 h-9 px-3 text-xs font-mono rounded-lg border outline-none transition-all focus:border-accent/50"
-                  style={{ background: "var(--background)", borderColor: "rgba(139,92,246,0.25)", color: "var(--foreground)" }} autoFocus />
-                <button onClick={handleRunCmd} disabled={!runCmd.trim()}
-                  className="h-9 px-4 text-xs font-bold rounded-lg text-white transition-all disabled:opacity-40"
-                  style={{ background: runCmd.trim() ? "linear-gradient(135deg,#16a34a,#22c55e)" : "#1d1033" }}>
-                  Execute
-                </button>
-              </div>
-              <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Presets</div>
-              <div className="flex flex-wrap gap-1">
-                {RUN_PRESETS.map((preset) => (
-                  <button key={preset.cmd} onClick={() => preset.lang !== "sep" && setRunCmd(preset.cmd)}
-                    className={`preset-btn ${preset.lang === "sep" ? "opacity-20 cursor-default" : "hover:text-white"}`}
-                    style={{ borderColor: preset.lang === "sep" ? "transparent" : `${preset.lang === "py" ? "#3776ab" : preset.lang === "js" ? "#cb3837" : preset.lang === "php" ? "#8892bf" : preset.lang === "go" ? "#00add8" : "#22c55e"}40`, color: "var(--foreground)" }}>
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showInstallDialog && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 animate-fadeIn" onClick={() => setShowInstallDialog(false)}>
-            <div className="rounded-2xl border w-full max-w-lg p-4 md:p-5 shadow-2xl animate-scaleIn" style={{ background: "var(--card)", borderColor: "var(--border)" }} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2"><Package className="w-4 h-4 text-cyan-400" /> Install Packages</h3>
-                <button onClick={() => setShowInstallDialog(false)} className="text-zinc-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"><X className="w-3.5 h-3.5" /></button>
-              </div>
-              <div className="flex gap-2 mb-3">
-                <input value={installCmd} onChange={(e) => setInstallCmd(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleInstallCmd(); if (e.key === "Escape") setShowInstallDialog(false); }}
-                  placeholder="Type install command..."
-                  className="flex-1 h-9 px-3 text-xs font-mono rounded-lg border outline-none transition-all focus:border-accent/50"
-                  style={{ background: "var(--background)", borderColor: "rgba(139,92,246,0.25)", color: "var(--foreground)" }} autoFocus />
-                <button onClick={handleInstallCmd} disabled={!installCmd.trim()}
-                  className="h-9 px-4 text-xs font-bold rounded-lg text-white transition-all disabled:opacity-40"
-                  style={{ background: installCmd.trim() ? "linear-gradient(135deg,#0891b2,#06b6d4)" : "#1d1033" }}>
-                  Install
-                </button>
-              </div>
-              <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Presets</div>
-              <div className="flex flex-wrap gap-1">
-                {INSTALL_PRESETS.map((preset) => (
-                  <button key={preset.cmd} onClick={() => setInstallCmd(preset.cmd)}
-                    className="preset-btn hover:text-white"
-                    style={{ borderColor: `${preset.lang === "py" ? "#3776ab" : preset.lang === "js" ? "#cb3837" : preset.lang === "php" ? "#8892bf" : preset.lang === "go" ? "#00add8" : "#22c55e"}40`, color: "var(--foreground)" }}>
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center gap-3 text-zinc-700">
+              {startup.runCmd.trim() && (
+                <span className="text-zinc-600 truncate max-w-[200px]">
+                  {isRunning ? "● Running" : ""} {startup.runCmd}
+                </span>
+              )}
+              <span>{tabs.length} tab(s)</span>
             </div>
           </div>
         )}
