@@ -34,11 +34,11 @@ interface Conversation {
 }
 
 const MODEL_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  nemotron: { label: "Nemotron 49B", icon: Sparkles, color: "#76b900" },
-  deepseek: { label: "DeepSeek R1", icon: Terminal, color: "#3b82f6" },
+  nemotron: { label: "Nemotron 120B", icon: Sparkles, color: "#76b900" },
+  deepseek: { label: "DeepSeek V4", icon: Terminal, color: "#3b82f6" },
   gemini: { label: "Gemini Flash", icon: Bot, color: "#22c55e" },
-  chat: { label: "Llama 405B", icon: Sparkles, color: "#8b5cf6" },
-  console: { label: "QwQ 32B", icon: Terminal, color: "#a855f7" },
+  chat: { label: "Llama 3.3 70B", icon: Sparkles, color: "#8b5cf6" },
+  console: { label: "Qwen 3.5 397B", icon: Terminal, color: "#a855f7" },
   claude: { label: "Claude 4.5", icon: Bot, color: "#f59e0b" },
 };
 
