@@ -103,7 +103,7 @@ export default function LoginPage() {
               <img src={LOGO_URL} alt="MODMEN" className="w-full h-full object-cover rounded-[18px]" draggable={false} />
             </div>
             <h1 className="text-[18px] md:text-[20px] font-bold tracking-[0.35em] text-white mb-0.5" style={{ fontFamily: "'JetBrains Mono', monospace", textShadow: "0 0 25px rgba(139,92,246,0.3)" }}>
-              SERVER HUB
+              𝐒𝐄𝐑𝐕𝐄𝐑 𝐇𝐔𝐁
             </h1>
             <p className="text-[10px] md:text-[11px] text-zinc-500 tracking-wider">Professional Server Management</p>
           </div>
@@ -182,7 +182,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-center text-zinc-600 text-[11px] mt-6 tracking-[0.15em]">
-            SERVER HUB &copy; 2026
+            𝐒𝐄𝐑𝐕𝐄𝐑 𝐇𝐔𝐁 &copy; 2026
           </p>
         </div>
       </div>
