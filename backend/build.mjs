@@ -53,12 +53,20 @@ await build({
 
 console.log("Build output:", readdirSync(outDir));
 
-// Copy sandbox_runner.py into dist/ so it's accessible at runtime
-const pySrc = join(__dirname, "src", "lib", "sandbox_runner.py");
-const pyDest = join(outDir, "sandbox_runner.py");
-if (existsSync(pySrc)) {
-  copyFileSync(pySrc, pyDest);
-  console.log("Copied sandbox_runner.py to dist/");
-} else {
-  console.warn("sandbox_runner.py not found at", pySrc);
+// Copy sandbox runners into dist/ so they're accessible at runtime
+const runnerFiles = [
+  "sandbox_runner.py",
+  "sandbox_runner.js",
+  "sandbox_runner.php",
+  "sandbox_runner.sh",
+];
+for (const file of runnerFiles) {
+  const src = join(__dirname, "src", "lib", file);
+  const dest = join(outDir, file);
+  if (existsSync(src)) {
+    copyFileSync(src, dest);
+    console.log(`Copied ${file} to dist/`);
+  } else {
+    console.warn(`${file} not found at`, src);
+  }
 }

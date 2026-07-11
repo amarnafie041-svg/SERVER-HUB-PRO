@@ -674,25 +674,28 @@ router.post("/files/run", authenticate, async (req: Request, res: Response): Pro
       "python"
     );
 
-    // Build the command
+    // Build the command — ALL languages go through their sandbox runner
     const TIMEOUT_MS = 30_000;
     let cmd: string;
     let cmdArgs: string[];
-    const sandboxRunnerPath = path.join(__dirname, "sandbox_runner.py");
+    const runnerDir = __dirname;
 
     if (lang === "python" || ext === ".py") {
-      // Use sandbox_runner.py for Python — adds audit hook + builtins guard
+      const runner = path.join(runnerDir, "sandbox_runner.py");
       cmd = "python3";
-      cmdArgs = [sandboxRunnerPath, baseDir, scriptPath, ...(args ? args.split(/\s+/) : [])];
+      cmdArgs = [runner, baseDir, scriptPath, ...(args ? args.split(/\s+/) : [])];
     } else if (lang === "javascript" || lang === "typescript" || ext === ".js" || ext === ".ts") {
-      cmd = lang === "typescript" ? "npx" : "node";
-      cmdArgs = lang === "typescript" ? ["tsx", scriptPath] : [scriptPath];
+      const runner = path.join(runnerDir, "sandbox_runner.js");
+      cmd = "node";
+      cmdArgs = [runner, baseDir, scriptPath, ...(args ? args.split(/\s+/) : [])];
     } else if (lang === "php" || ext === ".php") {
+      const runner = path.join(runnerDir, "sandbox_runner.php");
       cmd = "php";
-      cmdArgs = [scriptPath];
+      cmdArgs = [runner, baseDir, scriptPath, ...(args ? args.split(/\s+/) : [])];
     } else if (lang === "bash" || lang === "shell" || ext === ".sh") {
+      const runner = path.join(runnerDir, "sandbox_runner.sh");
       cmd = "bash";
-      cmdArgs = [scriptPath];
+      cmdArgs = [runner, baseDir, scriptPath, ...(args ? args.split(/\s+/) : [])];
     } else {
       res.status(400).json({ success: false, message: `Unsupported language: ${lang}` });
       return;
