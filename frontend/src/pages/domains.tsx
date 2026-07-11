@@ -1,69 +1,83 @@
 import { useState, useEffect } from "react";
-import { Globe, Server, Copy, Check, ExternalLink, Save, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/auth";
+import { Globe, Server, Copy, Check, ExternalLink, Save, Loader2, RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function DomainsPage() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [domainInfo, setDomainInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState("");
-  const [customSubdomain, setCustomSubdomain] = useState("");
-  const [customPort, setCustomPort] = useState("");
+  const [subdomain, setSubdomain] = useState("");
+  const [port, setPort] = useState("");
   const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.getDomainInfo()
       .then((info) => {
         setDomainInfo(info);
-        setCustomSubdomain(info.username || "");
-        setCustomPort(String(info.port || ""));
+        setSubdomain(info.username || "");
+        setPort(String(info.port || ""));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const handleSubdomainChange = (val: string) => {
-    setCustomSubdomain(val.toLowerCase().replace(/[^a-z0-9-]/g, ""));
-    setHasChanges(true);
+    const clean = val.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+    setSubdomain(clean);
+    setSaved(false);
+    setError("");
   };
 
   const handlePortChange = (val: string) => {
     const num = val.replace(/[^0-9]/g, "");
-    setCustomPort(num);
-    setHasChanges(true);
+    if (num.length <= 5) setPort(num);
+    setSaved(false);
+    setError("");
   };
 
-  const saveChanges = async () => {
+  const hasChanges = subdomain !== (domainInfo?.username || "") || parseInt(port) !== (domainInfo?.port || 3001);
+
+  const save = async () => {
+    if (!subdomain || subdomain.length < 2) {
+      setError("Subdomain must be at least 2 characters");
+      return;
+    }
+    if (!port || parseInt(port) < 1024 || parseInt(port) > 65535) {
+      setError("Port must be between 1024 and 65535");
+      return;
+    }
+
     setSaving(true);
+    setError("");
     try {
-      const updates: any = {};
-      if (customSubdomain !== (domainInfo.username || "")) {
-        updates.custom_subdomain = customSubdomain;
-      }
-      if (parseInt(customPort) !== (domainInfo.port || 3001)) {
-        updates.custom_port = parseInt(customPort);
-      }
-
-      if (Object.keys(updates).length === 0) {
-        setSaving(false);
-        return;
-      }
-
-      await api.updateDomainInfo(updates);
+      await api.updateDomainInfo({
+        custom_subdomain: subdomain,
+        custom_port: parseInt(port),
+      });
       const updated = await api.getDomainInfo();
       setDomainInfo(updated);
-      setHasChanges(false);
-      toast({ title: "Saved successfully", description: "Your subdomain and port settings have been updated" });
+      setSubdomain(updated.username || subdomain);
+      setPort(String(updated.port || port));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      toast({ title: "Settings saved", description: "Your subdomain and port have been updated" });
     } catch (err: any) {
-      toast({ title: "Save failed", description: err.message || "Failed to save settings", variant: "destructive" });
+      setError(err.message || "Failed to save");
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
     }
     setSaving(false);
+  };
+
+  const reset = () => {
+    setSubdomain(domainInfo?.username || "");
+    setPort(String(domainInfo?.port || ""));
+    setError("");
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -81,8 +95,9 @@ export default function DomainsPage() {
   }
 
   const baseDomain = domainInfo?.baseDomain || "server.app";
-  const previewSubdomain = customSubdomain || user?.username || "";
-  const previewPort = customPort || "3001";
+  const previewSub = subdomain || "yourname";
+  const previewPort = port || "3001";
+  const baseUrl = domainInfo?.urls?.direct?.split("/~")[0] || "";
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
@@ -91,122 +106,139 @@ export default function DomainsPage() {
         <p className="text-zinc-400 mt-1">Manage your subdomain and port configuration</p>
       </div>
 
-      {/* Subdomain Editor */}
+      {/* Editor Card */}
       <div className="rounded-xl border p-6" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-white mb-5 flex items-center gap-2">
           <Globe className="w-5 h-5 text-purple-400" />
-          Subdomain Settings
+          Configuration
         </h2>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Subdomain */}
           <div>
-            <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Your Subdomain</label>
-            <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-zinc-400 mb-2 block">Subdomain</label>
+            <div className="flex items-stretch">
               <Input
-                value={customSubdomain}
+                value={subdomain}
                 onChange={(e) => handleSubdomainChange(e.target.value)}
-                placeholder="e.g. elmodmen"
+                placeholder="your-subdomain"
                 maxLength={32}
-                className="font-mono text-white text-lg h-11"
+                className="rounded-r-none font-mono text-white h-11 border-r-0"
                 style={{ background: "var(--background)", borderColor: "var(--border)" }}
               />
-              <span className="text-lg font-mono text-purple-400 whitespace-nowrap">.{baseDomain}</span>
+              <div className="flex items-center px-3 rounded-r-lg border text-sm font-mono text-purple-400 whitespace-nowrap"
+                style={{ background: "var(--background)", borderColor: "var(--border)", borderLeft: "none" }}>
+                .{baseDomain}
+              </div>
             </div>
-            <p className="text-xs text-zinc-500 mt-1">Lowercase letters, numbers, and hyphens only. Min 2 characters.</p>
+            <p className="text-[11px] text-zinc-500 mt-1.5">Lowercase letters, numbers, hyphens. Min 2 characters.</p>
           </div>
 
+          {/* Port */}
           <div>
-            <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Port</label>
+            <label className="text-sm font-medium text-zinc-400 mb-2 block">Port</label>
             <Input
               type="text"
-              value={customPort}
+              value={port}
               onChange={(e) => handlePortChange(e.target.value)}
-              placeholder="e.g. 3001"
+              placeholder="3001"
               maxLength={5}
-              className="font-mono text-white text-lg h-11 max-w-[200px]"
+              className="font-mono text-white h-11 max-w-[200px]"
               style={{ background: "var(--background)", borderColor: "var(--border)" }}
             />
-            <p className="text-xs text-zinc-500 mt-1">Port number (1024 - 65535)</p>
+            <p className="text-[11px] text-zinc-500 mt-1.5">Range: 1024 - 65535</p>
           </div>
-
-          {hasChanges && (
-            <div className="flex items-center gap-3 pt-2">
-              <Button onClick={saveChanges} disabled={saving || !customSubdomain || !customPort}
-                className="gap-2 text-sm" style={{ background: "var(--accent)", color: "var(--background)" }}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save Changes
-              </Button>
-              <Button variant="ghost" onClick={() => {
-                setCustomSubdomain(domainInfo?.username || "");
-                setCustomPort(String(domainInfo?.port || ""));
-                setHasChanges(false);
-              }} className="text-zinc-400 text-sm">
-                Cancel
-              </Button>
-            </div>
-          )}
         </div>
 
-        {/* Preview */}
-        <div className="mt-6 rounded-lg p-4" style={{ background: "var(--background)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-lg font-mono text-white">
-                {previewSubdomain}<span className="text-purple-400">.{baseDomain}</span>
-              </p>
-              <p className="text-sm text-zinc-400">Port: {previewPort}</p>
-            </div>
-            <a href={`https://${previewSubdomain}.${baseDomain}`} target="_blank" rel="noopener"
-              className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/20 rounded-lg text-purple-400 transition-colors">
-              <ExternalLink className="w-4 h-4" />
-              Visit
-            </a>
+        {error && (
+          <div className="mt-3 px-3 py-2 rounded-lg text-sm text-red-400 bg-red-500/10 border border-red-500/20">
+            {error}
           </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 mt-5">
+          <Button onClick={save} disabled={saving || !hasChanges || !subdomain || !port}
+            className="gap-2 text-sm font-medium h-9 px-5"
+            style={{
+              background: saved ? "#22c55e" : hasChanges ? "var(--accent)" : "var(--background)",
+              color: saved || hasChanges ? "var(--background)" : "var(--foreground)",
+              borderColor: "var(--border)",
+            }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {saved ? "Saved!" : saving ? "Saving..." : "Save Changes"}
+          </Button>
+          {hasChanges && (
+            <Button variant="ghost" onClick={reset} className="gap-1.5 text-xs text-zinc-400 h-9">
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Live Preview */}
+      <div className="rounded-xl border p-6" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Server className="w-5 h-5 text-amber-400" />
+          Preview
+        </h2>
+
+        {/* Big Preview */}
+        <div className="rounded-xl p-5 mb-5 text-center" style={{ background: "var(--background)" }}>
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
+              <Globe className="w-7 h-7 text-white" />
+            </div>
+          </div>
+          <p className="text-2xl md:text-3xl font-mono text-white mb-1">
+            <span className="text-purple-400">{previewSub}</span>
+            <span className="text-zinc-500">.</span>
+            <span className="text-indigo-400">{baseDomain}</span>
+          </p>
+          <p className="text-sm text-zinc-400">
+            Port: <span className="text-white font-mono">{previewPort}</span>
+          </p>
         </div>
 
         {/* Access URLs */}
-        <div className="space-y-3 mt-4">
-          <h3 className="text-sm font-medium text-zinc-400">Access URLs</h3>
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Access URLs</h3>
+
           {[
-            { label: "Subdomain", url: `https://${previewSubdomain}.${baseDomain}` },
-            { label: "Local", url: `http://localhost:${previewPort}` },
-            { label: "Path-based", url: `${domainInfo?.urls?.direct?.split("/~")[0] || ""}/~${previewSubdomain}` },
+            { label: "Subdomain", value: `https://${previewSub}.${baseDomain}`, color: "text-purple-400" },
+            { label: "Path-based", value: `${baseUrl}/~${previewSub}`, color: "text-blue-400" },
+            { label: "Local", value: `http://localhost:${previewPort}`, color: "text-amber-400" },
           ].map((item) => (
-            <div key={item.label} className="flex items-center gap-3 rounded-lg p-3" style={{ background: "var(--background)" }}>
-              <span className="text-xs text-zinc-500 w-20">{item.label}</span>
-              <span className="text-sm text-white font-mono flex-1 truncate">{item.url}</span>
-              <button onClick={() => copyToClipboard(item.url, item.label)} className="p-1 text-zinc-400 hover:text-white transition-colors">
-                {copied === item.label ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-              </button>
-              <a href={item.url} target="_blank" rel="noopener" className="p-1 text-zinc-400 hover:text-white transition-colors">
-                <ExternalLink className="w-4 h-4" />
-              </a>
+            <div key={item.label} className="flex items-center gap-3 rounded-lg p-3 group transition-colors hover:bg-white/5"
+              style={{ background: "var(--background)" }}>
+              <span className={`text-[11px] font-semibold uppercase tracking-wider w-20 shrink-0 ${item.color}`}>
+                {item.label}
+              </span>
+              <span className="text-sm text-white font-mono flex-1 truncate">{item.value}</span>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => copyToClipboard(item.value, item.label)}
+                  className="p-1.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Copy">
+                  {copied === item.label ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+                <a href={item.value} target="_blank" rel="noopener"
+                  className="p-1.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Open">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Domain Format */}
-      <div className="rounded-xl border p-6" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Server className="w-5 h-5 text-amber-400" />
-          Domain Format
-        </h2>
-        <div className="rounded-lg p-4" style={{ background: "var(--background)" }}>
-          <div className="text-center">
-            <p className="text-2xl font-mono text-white mb-2">
-              <span className="text-purple-400">{previewSubdomain || "yourname"}</span>
-              <span className="text-zinc-500">.</span>
-              <span className="text-indigo-400">{baseDomain}</span>
-            </p>
-            <p className="text-sm text-zinc-400">
-              Your subdomain follows the format: <code className="text-white px-1 rounded" style={{ background: "var(--card)" }}>subdomain.{baseDomain}</code>
-            </p>
-          </div>
-        </div>
+      {/* Format Info */}
+      <div className="rounded-xl border p-5" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+        <p className="text-xs text-zinc-500 text-center">
+          Your subdomain follows the format:{" "}
+          <code className="text-purple-400 font-mono">subdomain.{baseDomain}</code>
+        </p>
       </div>
     </div>
   );

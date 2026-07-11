@@ -31,11 +31,11 @@ const AI_MODELS: Record<string, ModelConfig> = {
   nemotron: {
     provider: "nvidia",
     key: NVIDIA_API_KEY,
-    model: "nvidia/llama-3.3-70b-instruct-fast",
+    model: "nvidia/llama-3.3-nemotron-super-49b-v1",
     temp: 0.6,
     top_p: 0.9,
     max_tokens: 4096,
-    name: "Nemotron 70B Fast",
+    name: "Nemotron Super 49B",
   },
   deepseek: {
     provider: "nvidia",
@@ -56,11 +56,11 @@ const AI_MODELS: Record<string, ModelConfig> = {
   chat: {
     provider: "nvidia",
     key: NVIDIA_API_KEY,
-    model: "meta/llama-3.3-70b-instruct",
+    model: "meta/llama-3.1-405b-instruct",
     temp: 0.7,
     top_p: 0.95,
     max_tokens: 4096,
-    name: "Llama 3.3 70B",
+    name: "Llama 3.1 405B",
   },
   console: {
     provider: "nvidia",
@@ -69,7 +69,7 @@ const AI_MODELS: Record<string, ModelConfig> = {
     temp: 0.6,
     top_p: 0.95,
     max_tokens: 4096,
-    name: "QwQ 32B",
+    name: "QwQ 32B Reasoning",
   },
   claude: {
     provider: "claude",

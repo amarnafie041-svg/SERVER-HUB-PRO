@@ -34,12 +34,12 @@ interface Conversation {
 }
 
 const MODEL_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  nemotron: { label: "Nemotron 70B Fast", icon: Sparkles, color: "#76b900" },
+  nemotron: { label: "Nemotron 49B", icon: Sparkles, color: "#76b900" },
   deepseek: { label: "DeepSeek R1", icon: Terminal, color: "#3b82f6" },
-  gemini: { label: "Gemini 2.0 Flash", icon: Bot, color: "#22c55e" },
-  chat: { label: "Llama 3.3 70B", icon: Sparkles, color: "#8b5cf6" },
+  gemini: { label: "Gemini Flash", icon: Bot, color: "#22c55e" },
+  chat: { label: "Llama 405B", icon: Sparkles, color: "#8b5cf6" },
   console: { label: "QwQ 32B", icon: Terminal, color: "#a855f7" },
-  claude: { label: "Claude 4.5 Sonnet", icon: Bot, color: "#f59e0b" },
+  claude: { label: "Claude 4.5", icon: Bot, color: "#f59e0b" },
 };
 
 const STORAGE_KEY = "sh_ai_conversations";
