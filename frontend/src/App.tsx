@@ -21,6 +21,8 @@ const DockerPage = lazy(() => import("@/pages/docker"));
 const HostingPage = lazy(() => import("@/pages/hosting"));
 const DomainsPage = lazy(() => import("@/pages/domains"));
 const LoginPage = lazy(() => import("@/pages/login"));
+const LandingPage = lazy(() => import("@/pages/landing"));
+const RegisterPage = lazy(() => import("@/pages/register"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function LoadingScreen() {
@@ -70,9 +72,13 @@ function AppRoutes() {
   if (isLoading) return <LoadingScreen />;
 
   if (!user) {
+    const p = window.location.hash.replace(/^#/, "") || "/";
+    let PublicPage = LandingPage;
+    if (p === "/login") PublicPage = LoginPage;
+    else if (p === "/register") PublicPage = RegisterPage;
     return (
       <Suspense fallback={<LoadingScreen />}>
-        <LoginPage />
+        <PublicPage />
       </Suspense>
     );
   }
