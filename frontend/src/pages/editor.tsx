@@ -11,6 +11,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
+const HIDDEN_SYSTEM_ITEMS = new Set([
+  ".cache", ".config", ".local", "bin", "projects", "tmp",
+  ".bashrc", ".sandbox-shell.sh", ".sandboxrc", ".zshrc",
+]);
+
 interface FileNode {
   name: string;
   path: string;
@@ -126,7 +131,7 @@ export default function EditorPage() {
 
   useEffect(() => {
     setRootLoading(true);
-    api.listFiles(rootPath).then((data: any) => setRootFiles(data?.items || [])).catch(() => {}).finally(() => setRootLoading(false));
+    api.listFiles(rootPath).then((data: any) => setRootFiles(data?.items || [])).catch((e: any) => { console.error("Failed to list root files:", e); }).finally(() => setRootLoading(false));
   }, [rootPath, refreshKey]);
 
   useEffect(() => {
@@ -149,7 +154,10 @@ export default function EditorPage() {
       const language = langMap[ext] || "plaintext";
       setTabs((prev) => [...prev, { path: node.path, name: node.name, content: data.content ?? "", language, modified: false }]);
       setActiveTabPath(node.path);
-    } catch (e) { console.error("Failed to open file:", e); toast({ title: "Failed to open file", variant: "destructive" }); }
+    } catch (e: any) {
+      console.error("Failed to open file:", node.path, e);
+      toast({ title: "Failed to open file", description: e?.message || node.name, variant: "destructive" });
+    }
   }, [toast]);
 
   const handleEditorChange = useCallback((value: string | undefined) => {
@@ -290,7 +298,7 @@ export default function EditorPage() {
 
         <div className="flex-1 overflow-hidden">
           {activeTab ? (
-            <Editor height="100%" language={activeTab.language || "plaintext"} value={activeTab.content} onChange={handleEditorChange}
+            <Editor key={activeTab.path} height="100%" language={activeTab.language || "plaintext"} value={activeTab.content} onChange={handleEditorChange}
               theme="vs-dark"
               options={{ fontSize: 14, fontFamily: '"JetBrains Mono", "Fira Code", monospace', minimap: { enabled: true, scale: 1 }, lineNumbers: "on", wordWrap: "on", automaticLayout: true, scrollBeyondLastLine: false, bracketPairColorization: { enabled: true }, suggestOnTriggerCharacters: true, quickSuggestions: true, cursorBlinking: "smooth", renderLineHighlight: "gutter", tabSize: 2, padding: { top: 16, bottom: 16 }, smoothScrolling: true, scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 } }}
               onMount={(editor) => { editor.addCommand(2097, () => saveCurrentFile()); }} />
