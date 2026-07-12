@@ -40,7 +40,7 @@ export default function AdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState<UserData | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [form, setForm] = useState({ username: "", password: "", display_name: "", role: "user", expires_days: "", expires_hours: "", disabled: false, cpu_limit: "", ram_limit: "", disk_limit: "" });
+  const [form, setForm] = useState({ username: "", password: "", display_name: "", role: "user", expires_days: "1", expires_hours: "", disabled: false, cpu_limit: "25", ram_limit: "1073741824", disk_limit: "2147483648" });
   const [activeTab, setActiveTab] = useState<"overview" | "users" | "system" | "telegram">("overview");
   const [systemStats, setSystemStats] = useState<any>(null);
   const [dockerStatus, setDockerStatus] = useState<{ available: boolean; containers: string[] } | null>(null);

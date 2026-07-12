@@ -134,6 +134,7 @@ terminalRouterAPI.post("/terminal/sessions", authenticate, async (req: Request, 
   const id = generateId();
   const username = (req as any).user?.username || "unknown";
   const userId = (req as any).user?.userId || "";
+  const userRole = (req as any).user?.role || "user";
 
   const session: TerminalSession = {
     id,
@@ -155,6 +156,65 @@ terminalRouterAPI.post("/terminal/sessions", authenticate, async (req: Request, 
   let workDir = cwd || (isWindows
     ? process.env.USERPROFILE || "C:\\"
     : "/home/runner");
+
+  if (userRole === "admin") {
+    if (!ptyModule) {
+      res.status(500).json({ error: "Terminal not available" });
+      return;
+    }
+    try {
+      const { shell, args } = getShell();
+      const ptyProcess = ptyModule.spawn(shell, args, {
+        name: "xterm-256color",
+        cols: 80,
+        rows: 24,
+        cwd: workDir,
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          COLORTERM: "truecolor",
+          LANG: "C.UTF-8",
+          LC_ALL: "C.UTF-8",
+        },
+      });
+
+      session.pty = ptyProcess;
+
+      ptyProcess.onData((data: string) => {
+        session.outputBuffer.push(data);
+        if (session.outputBuffer.length > MAX_BUFFER_LINES) {
+          session.outputBuffer.splice(0, session.outputBuffer.length - MAX_BUFFER_LINES);
+        }
+        broadcastToClients(session, { type: "output", data });
+      });
+
+      ptyProcess.onExit(() => {
+        session.status = "exited";
+        broadcastToClients(session, { type: "exit" });
+      });
+
+      logActivity({
+        user: username,
+        action: "terminal.create",
+        target: `session/${id}`,
+        details: `Admin terminal session "${name}" created (Full Access)`,
+        status: "success",
+      });
+      logger.info({ id, username, role: "admin", isolated: false }, "Admin terminal session created (Full Access)");
+      sessions.set(id, session);
+      res.status(201).json({
+        id,
+        name: session.name,
+        created_at: session.created_at,
+        status: session.status,
+        isolated: false,
+      });
+    } catch (err) {
+      logger.error({ err }, "Admin terminal failed");
+      res.status(500).json({ error: "Failed to create terminal session" });
+    }
+    return;
+  }
 
   if (dockerManager.isAvailable) {
     try {
