@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { logger } from "./logger";
 
-const SECRET = process.env.SESSION_SECRET || "";
+const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
-if (!SECRET) {
-  logger.error("SESSION_SECRET environment variable is required");
-  process.exit(1);
+if (!process.env.SESSION_SECRET) {
+  logger.warn("SESSION_SECRET not set — using auto-generated random secret (sessions invalidate on restart)");
 }
 
 export interface JwtPayload {
