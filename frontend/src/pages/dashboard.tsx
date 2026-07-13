@@ -4,7 +4,8 @@ import {
   Zap, MemoryStick, Wifi, X, RefreshCw,
   TrendingUp, Globe, Terminal, Folder, Bot, Shield,
   ArrowUpRight, ArrowDownRight,
-  Gauge, Disc, Radio, Database,
+  Gauge, Disc, Radio, Database, Play, Save,
+  Info, ChevronRight, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +113,13 @@ export default function Dashboard() {
   const [processes, setProcesses] = useState<any[]>([]);
   const [processesLoading, setProcessesLoading] = useState(true);
 
+  const [buildCmd, setBuildCmd] = useState("");
+  const [runCmd, setRunCmd] = useState("");
+  const [startupLoading, setStartupLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [savingStartup, setSavingStartup] = useState(false);
+  const [showInfo, setShowInfo] = useState(true);
+
   const fetchStats = useCallback(async () => {
     try { setStats(await api.getSystemStats()); } catch {} finally { setStatsLoading(false); }
   }, []);
@@ -131,6 +139,13 @@ export default function Dashboard() {
     return () => { clearInterval(si); clearInterval(pi); clearInterval(pri); clearInterval(ci); };
   }, []);
 
+  useEffect(() => {
+    api.getStartupConfig()
+      .then((cfg) => { setBuildCmd(cfg.build_cmd || ""); setRunCmd(cfg.run_cmd || ""); })
+      .catch(() => {})
+      .finally(() => setStartupLoading(false));
+  }, []);
+
   const handleKill = async (pid: number) => {
     try {
       await api.killProcess(pid);
@@ -138,6 +153,37 @@ export default function Dashboard() {
       fetchProcesses();
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to kill process", variant: "destructive" });
+    }
+  };
+
+  const handleSaveStartup = async () => {
+    setSavingStartup(true);
+    try {
+      await api.updateStartupConfig({ build_cmd: buildCmd, run_cmd: runCmd });
+      toast({ title: "Startup saved", description: "Commands saved to database" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
+    } finally {
+      setSavingStartup(false);
+    }
+  };
+
+  const handleStartServer = async () => {
+    if (!runCmd.trim()) {
+      toast({ title: "No run command", description: "Set a run command first", variant: "destructive" });
+      return;
+    }
+    setStarting(true);
+    try {
+      const result = await api.runStartup();
+      if (result.build_output) {
+        toast({ title: "Build output", description: result.build_output.slice(0, 200) });
+      }
+      toast({ title: "Server started", description: result.start_output.slice(0, 200) });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to start server", variant: "destructive" });
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -170,13 +216,84 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Info Bar */}
+      {showInfo && (
+        <div className="relative rounded-2xl border overflow-hidden animate-fadeIn" style={{ background: "linear-gradient(135deg, #1a0e30 0%, #140a24 100%)", borderColor: "rgba(139,92,246,0.15)" }}>
+          <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 0% 50%, rgba(139,92,246,0.08), transparent 60%)" }} />
+          <button onClick={() => setShowInfo(false)} className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-zinc-500 hover:text-white hover:bg-white/10 transition-colors text-xs">&times;</button>
+          <div className="relative px-4 py-3 md:py-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="w-4 h-4 text-accent" />
+              <span className="text-xs font-bold text-zinc-300">Getting Started</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { num: "1", title: "Upload Files", desc: "Upload your project files with libraries (requirements.txt, package.json)" },
+                { num: "2", title: "Startup Config", desc: "Set build and run commands below, then save" },
+                { num: "3", title: "Start Server", desc: "Hit Start Server to build and run your project" },
+              ].map((step) => (
+                <div key={step.num} className="flex items-start gap-2.5">
+                  <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold" style={{ background: "rgba(139,92,246,0.2)", color: "#a78bfa" }}>{step.num}</div>
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-200">{step.title}</p>
+                    <p className="text-[10px] text-zinc-500 leading-relaxed">{step.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="grid grid-cols-4 gap-2 md:gap-3 animate-fadeIn">
         <QuickAction icon={Terminal} label={t("terminal")} color="#8b5cf6" onClick={() => window.location.hash = "#/terminal"} />
         <QuickAction icon={Folder} label={t("files")} color="#a855f7" onClick={() => window.location.hash = "#/files"} />
         <QuickAction icon={Bot} label={t("ai_chat")} color="#6d28d9" onClick={() => window.location.hash = "#/ai"} />
-        <QuickAction icon={Shield} label={t("admin")} color="#7c3aed" onClick={() => window.location.hash = "#/admin"} />
+        <QuickAction icon={Globe} label={t("domains") || "Domains"} color="#7c3aed" onClick={() => window.location.hash = "#/domains"} />
       </div>
+
+      {/* Startup Section */}
+      {!startupLoading && (
+        <div className="rounded-2xl border animate-fadeIn" style={{ background: "#140a24", borderColor: "rgba(139,92,246,0.15)" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(139,92,246,0.1)" }}>
+            <div className="flex items-center gap-2">
+              <Play className="w-4 h-4 text-accent" />
+              <span className="font-semibold text-sm">Startup</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleStartServer} disabled={starting || !runCmd.trim()}
+                className="h-7 px-3 text-xs font-bold text-green-400 hover:bg-green-500/10">
+                {starting ? <span className="animate-pulse">Starting...</span> : "Start Server"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSaveStartup} disabled={savingStartup}
+                className="h-7 px-3 text-xs font-bold text-accent hover:bg-accent/10">
+                <Save className="w-3 h-3 mr-1" /> Save
+              </Button>
+            </div>
+          </div>
+          <div className="p-4 flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <label className="text-[10px] font-mono text-zinc-500 mb-1 block">Build Command</label>
+              <input value={buildCmd} onChange={(e) => setBuildCmd(e.target.value)}
+                placeholder="npm install && npm run build (optional)"
+                className="w-full h-9 px-3 text-xs font-mono rounded-xl border outline-none transition-colors"
+                style={{ background: "#1d1033", borderColor: "rgba(139,92,246,0.15)", color: "#e4e4e7" }}
+                onFocus={(e) => e.target.style.borderColor = "rgba(139,92,246,0.4)"}
+                onBlur={(e) => e.target.style.borderColor = "rgba(139,92,246,0.15)"} />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] font-mono text-zinc-500 mb-1 block">Start Command</label>
+              <input value={runCmd} onChange={(e) => setRunCmd(e.target.value)}
+                placeholder="node index.js  /  python3 main.py  /  php index.php"
+                className="w-full h-9 px-3 text-xs font-mono rounded-xl border outline-none transition-colors"
+                style={{ background: "#1d1033", borderColor: "rgba(139,92,246,0.15)", color: "#e4e4e7" }}
+                onFocus={(e) => e.target.style.borderColor = "rgba(139,92,246,0.4)"}
+                onBlur={(e) => e.target.style.borderColor = "rgba(139,92,246,0.15)"} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Metrics */}
       {statsLoading ? (

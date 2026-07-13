@@ -29,6 +29,8 @@ export interface User {
   cpu_limit: number | null;
   ram_limit: number | null;
   disk_limit: number | null;
+  build_cmd: string;
+  run_cmd: string;
 }
 
 export interface Settings {
@@ -88,6 +90,8 @@ function loadData(): StorageData {
         cpu_limit: null,
         ram_limit: null,
         disk_limit: null,
+        build_cmd: "",
+        run_cmd: "",
       }],
       settings: DEFAULT_SETTINGS,
     };
@@ -104,9 +108,11 @@ function loadData(): StorageData {
       custom_subdomain: null as string | null,
       custom_port: null as number | null,
       cpu_limit: null as number | null,
-      ram_limit: null as number | null,
-      disk_limit: null as number | null,
-      ...u,
+        ram_limit: null as number | null,
+        disk_limit: null as number | null,
+        build_cmd: "",
+        run_cmd: "",
+        ...u,
     }));
     return data;
   } catch {

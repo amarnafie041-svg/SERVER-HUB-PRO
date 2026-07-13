@@ -40,19 +40,6 @@ interface StartupConfig {
 
 const MAX_RECONNECT = 99999;
 const STORED_SESSION_KEY = "sh_terminal_session";
-const STARTUP_KEY = "sh_startup_config";
-
-function loadStartup(): StartupConfig {
-  try {
-    const raw = localStorage.getItem(STARTUP_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { buildCmd: "", runCmd: "" };
-}
-
-function saveStartup(cfg: StartupConfig) {
-  localStorage.setItem(STARTUP_KEY, JSON.stringify(cfg));
-}
 
 const S = (n: number) => " ".repeat(n);
 
@@ -92,7 +79,7 @@ export default function TerminalPage() {
   const [showKb, setShowKb] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const [startup, setStartup] = useState<StartupConfig>(loadStartup);
+  const [startup, setStartup] = useState<StartupConfig>({ buildCmd: "", runCmd: "" });
   const [showStartupPanel, setShowStartupPanel] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -130,6 +117,12 @@ export default function TerminalPage() {
       }
       resources.current = {};
     };
+  }, []);
+
+  useEffect(() => {
+    api.getStartupConfig().then((cfg) => {
+      setStartup({ buildCmd: cfg.build_cmd || "", runCmd: cfg.run_cmd || "" });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -461,10 +454,14 @@ export default function TerminalPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleSaveStartup = () => {
-    saveStartup(startup);
-    setShowStartupPanel(false);
-    toast({ title: "Startup commands saved" });
+  const handleSaveStartup = async () => {
+    try {
+      await api.updateStartupConfig({ build_cmd: startup.buildCmd, run_cmd: startup.runCmd });
+      setShowStartupPanel(false);
+      toast({ title: "Startup commands saved" });
+    } catch {
+      toast({ title: "Failed to save startup", variant: "destructive" });
+    }
   };
 
   const handleStart = () => {

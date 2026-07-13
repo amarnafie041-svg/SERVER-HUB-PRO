@@ -14,6 +14,7 @@ import portsRouter from "./ports";
 import domainsRouter from "./domains";
 import hostingRouter from "./hosting";
 import telegramAdminRouter from "./telegram-admin";
+import startupRouter from "./startup";
 
 const router: IRouter = Router();
 
@@ -32,6 +33,7 @@ router.use(portsRouter);
 router.use(domainsRouter);
 router.use(hostingRouter);
 router.use(telegramAdminRouter);
+router.use(startupRouter);
 
 // Lightweight ping for uptime monitoring
 router.get("/ping", (_req, res) => res.json({ ok: true, time: Date.now() }));

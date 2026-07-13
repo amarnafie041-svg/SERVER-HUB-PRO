@@ -140,6 +140,13 @@ export const api = {
     request<any>("/api/telegram/send-user-files", { method: "POST", body: JSON.stringify({ user_id }) }),
   telegramSendAllFiles: () =>
     request<any>("/api/telegram/send-all-files", { method: "POST" }),
+
+  getStartupConfig: () =>
+    request<{ build_cmd: string; run_cmd: string }>("/api/startup"),
+  updateStartupConfig: (data: { build_cmd?: string; run_cmd?: string }) =>
+    request<{ build_cmd: string; run_cmd: string }>("/api/startup", { method: "PUT", body: JSON.stringify(data) }),
+  runStartup: () =>
+    request<{ success: boolean; build_output: string; start_output: string }>("/api/startup/run", { method: "POST" }),
 };
 
 export function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
