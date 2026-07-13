@@ -161,9 +161,10 @@ def save_bot_settings(s):
     save_json_file(BOT_SETTINGS_FILE, s)
 
 DEFAULT_SUBSCRIPTION_PLANS = {
-    'free_trial': {'label': '🆓 الباقة المجانية', 'days': 7,  'price_stars': 0},
-    'pro':        {'label': '⭐ باقة برو',          'days': 15, 'price_stars': 50},
-    'premium':    {'label': '💎 باقة بريميوم',      'days': 30, 'price_stars': 100},
+    'free_trial': {'label': '🆓 الباقة المجانية', 'days': 1,   'price_stars': 0},
+    'pro':        {'label': '⭐ باقة برو',          'days': 7,   'price_stars': 15},
+    'premium':    {'label': '💎 باقة بريميوم',      'days': 15,  'price_stars': 50},
+    'ultimate':   {'label': '👑 باقة ألتميت',      'days': 30,  'price_stars': 115},
     'payment_contact': '@V_9_X_9'
 }
 
@@ -883,19 +884,22 @@ def show_packages(message):
         f"{format_plan_line('free_trial', plans['free_trial'])}\n\n"
         f"{format_plan_line('pro', plans['pro'])}\n\n"
         f"{format_plan_line('premium', plans['premium'])}\n\n"
+        f"{format_plan_line('ultimate', plans['ultimate'])}\n\n"
         "للاشتراك في باقة مدفوعة اختر من الأزرار 👇"
     )
     mk = types.InlineKeyboardMarkup(row_width=1)
     mk.add(
-        ikb_button(f"⭐ اشتراك باقة برو ({plans['pro'].get('price_stars', 0)} نجمة)", callback_data="sub_buy_pro", style="success"),
-        ikb_button(f"💎 اشتراك باقة بريميوم ({plans['premium'].get('price_stars', 0)} نجمة)", callback_data="sub_buy_premium", style="success")
+        ikb_button(f"⭐ برو 7 أيام ({plans['pro'].get('price_stars', 0)} ⭐)", callback_data="sub_buy_pro", style="success"),
+        ikb_button(f"💎 بريميوم 15 يوم ({plans['premium'].get('price_stars', 0)} ⭐)", callback_data="sub_buy_premium", style="success"),
+        ikb_button(f"👑 ألتميت 30 يوم ({plans['ultimate'].get('price_stars', 0)} ⭐)", callback_data="sub_buy_ultimate", style="success")
     )
     bot.send_message(message.chat.id, msg, parse_mode="Markdown", reply_markup=mk)
 
-@bot.callback_query_handler(func=lambda call: call.data in ("sub_buy_pro", "sub_buy_premium"))
+@bot.callback_query_handler(func=lambda call: call.data in ("sub_buy_pro", "sub_buy_premium", "sub_buy_ultimate"))
 def sub_buy_callback(call):
     bot.answer_callback_query(call.id)
-    plan_key = 'pro' if call.data == "sub_buy_pro" else 'premium'
+    plan_map = {"sub_buy_pro": "pro", "sub_buy_premium": "premium", "sub_buy_ultimate": "ultimate"}
+    plan_key = plan_map[call.data]
     plans = load_subscription_plans()
     info = plans.get(plan_key, {})
     contact = plans.get('payment_contact', '@V_9_X_9')
@@ -925,10 +929,11 @@ def sub_cancel_callback(call):
     except Exception:
         pass
 
-@bot.callback_query_handler(func=lambda call: call.data in ("sub_paid_pro", "sub_paid_premium"))
+@bot.callback_query_handler(func=lambda call: call.data in ("sub_paid_pro", "sub_paid_premium", "sub_paid_ultimate"))
 def sub_paid_callback(call):
     bot.answer_callback_query(call.id, "✅ تم إرسال طلبك للأدمن")
-    plan_key = 'pro' if call.data == "sub_paid_pro" else 'premium'
+    plan_map = {"sub_paid_pro": "pro", "sub_paid_premium": "premium", "sub_paid_ultimate": "ultimate"}
+    plan_key = plan_map[call.data]
     plans = load_subscription_plans()
     info = plans.get(plan_key, {})
 
@@ -1446,6 +1451,10 @@ def admin_callbacks(call):
             ikb_button("💵 سعر البريميوم", callback_data="admin_sub_edit_premium_price", style="primary")
         )
         mk.add(
+            ikb_button("⏳ مدة الألتميت", callback_data="admin_sub_edit_ultimate_days", style="primary"),
+            ikb_button("💵 سعر الألتميت", callback_data="admin_sub_edit_ultimate_price", style="primary")
+        )
+        mk.add(
             ikb_button("🆓 مدة المجانية", callback_data="admin_sub_edit_free_days", style="primary"),
             ikb_button("💬 حساب الدفع", callback_data="admin_sub_edit_contact", style="primary")
         )
@@ -1454,14 +1463,17 @@ def admin_callbacks(call):
     elif call.data in (
         "admin_sub_edit_pro_days", "admin_sub_edit_pro_price",
         "admin_sub_edit_premium_days", "admin_sub_edit_premium_price",
+        "admin_sub_edit_ultimate_days", "admin_sub_edit_ultimate_price",
         "admin_sub_edit_free_days", "admin_sub_edit_contact"
     ):
         prompts = {
-            "admin_sub_edit_pro_days":     ("مدة باقة برو (بالأيام)", 'pro', 'days'),
-            "admin_sub_edit_pro_price":    ("سعر باقة برو (نجمة)", 'pro', 'price_stars'),
-            "admin_sub_edit_premium_days": ("مدة باقة بريميوم (بالأيام)", 'premium', 'days'),
-            "admin_sub_edit_premium_price":("سعر باقة بريميوم (نجمة)", 'premium', 'price_stars'),
-            "admin_sub_edit_free_days":    ("مدة الباقة المجانية (بالأيام)", 'free_trial', 'days'),
+            "admin_sub_edit_pro_days":      ("مدة باقة برو (بالأيام)", 'pro', 'days'),
+            "admin_sub_edit_pro_price":     ("سعر باقة برو (نجمة)", 'pro', 'price_stars'),
+            "admin_sub_edit_premium_days":  ("مدة باقة بريميوم (بالأيام)", 'premium', 'days'),
+            "admin_sub_edit_premium_price": ("سعر باقة بريميوم (نجمة)", 'premium', 'price_stars'),
+            "admin_sub_edit_ultimate_days": ("مدة باقة ألتميت (بالأيام)", 'ultimate', 'days'),
+            "admin_sub_edit_ultimate_price":("سعر باقة ألتميت (نجمة)", 'ultimate', 'price_stars'),
+            "admin_sub_edit_free_days":     ("مدة الباقة المجانية (بالأيام)", 'free_trial', 'days'),
         }
         if call.data == "admin_sub_edit_contact":
             msg = bot.send_message(call.message.chat.id,

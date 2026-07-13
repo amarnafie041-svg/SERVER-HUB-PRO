@@ -146,7 +146,11 @@ export const api = {
   updateStartupConfig: (data: { build_cmd?: string; run_cmd?: string }) =>
     request<{ build_cmd: string; run_cmd: string }>("/api/startup", { method: "PUT", body: JSON.stringify(data) }),
   runStartup: () =>
-    request<{ success: boolean; build_output: string; start_output: string }>("/api/startup/run", { method: "POST" }),
+    request<{ success: boolean; build_output: string; pid: number; message: string }>("/api/startup/run", { method: "POST" }),
+  stopStartup: () =>
+    request<{ success: boolean; message: string }>("/api/startup/stop", { method: "POST" }),
+  getStartupStatus: () =>
+    request<{ running: boolean; pid?: number; cmd?: string; startedAt?: string }>("/api/startup/status"),
 };
 
 export function authFetch(url: string, options: RequestInit = {}): Promise<Response> {

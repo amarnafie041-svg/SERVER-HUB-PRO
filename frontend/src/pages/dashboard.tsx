@@ -4,8 +4,8 @@ import {
   Zap, MemoryStick, Wifi, X, RefreshCw,
   TrendingUp, Globe, Terminal, Folder, Bot, Shield,
   ArrowUpRight, ArrowDownRight,
-  Gauge, Disc, Radio, Database, Play, Save,
-  Info, ChevronRight, ExternalLink,
+  Gauge, Disc, Radio, Database, Play, Save, Square,
+  Info, ChevronRight, ExternalLink, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -117,8 +117,11 @@ export default function Dashboard() {
   const [runCmd, setRunCmd] = useState("");
   const [startupLoading, setStartupLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [savingStartup, setSavingStartup] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+  const [procStatus, setProcStatus] = useState<{ running: boolean; pid?: number; cmd?: string; startedAt?: string }>({ running: false });
+  const [procStatusLoading, setProcStatusLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
     try { setStats(await api.getSystemStats()); } catch {} finally { setStatsLoading(false); }
@@ -144,7 +147,22 @@ export default function Dashboard() {
       .then((cfg) => { setBuildCmd(cfg.build_cmd || ""); setRunCmd(cfg.run_cmd || ""); })
       .catch(() => {})
       .finally(() => setStartupLoading(false));
+    api.getStartupStatus()
+      .then((s) => setProcStatus(s))
+      .catch(() => {})
+      .finally(() => setProcStatusLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!procStatus.running) return;
+    const si = setInterval(async () => {
+      try {
+        const s = await api.getStartupStatus();
+        setProcStatus(s);
+      } catch {}
+    }, 5000);
+    return () => clearInterval(si);
+  }, [procStatus.running]);
 
   const handleKill = async (pid: number) => {
     try {
@@ -176,14 +194,28 @@ export default function Dashboard() {
     setStarting(true);
     try {
       const result = await api.runStartup();
+      setProcStatus({ running: true, pid: result.pid, cmd: runCmd.trim(), startedAt: new Date().toISOString() });
       if (result.build_output) {
-        toast({ title: "Build output", description: result.build_output.slice(0, 200) });
+        toast({ title: "Build output", description: result.build_output.slice(0, 300) });
       }
-      toast({ title: "Server started", description: result.start_output.slice(0, 200) });
+      toast({ title: "Server started", description: result.message || "Process running in background" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to start server", variant: "destructive" });
     } finally {
       setStarting(false);
+    }
+  };
+
+  const handleStopServer = async () => {
+    setStopping(true);
+    try {
+      const result = await api.stopStartup();
+      setProcStatus({ running: false });
+      toast({ title: "Stopped", description: result.message });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to stop server", variant: "destructive" });
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -262,16 +294,34 @@ export default function Dashboard() {
               <span className="font-semibold text-sm">Startup</span>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleStartServer} disabled={starting || !runCmd.trim()}
-                className="h-7 px-3 text-xs font-bold text-green-400 hover:bg-green-500/10">
-                {starting ? <span className="animate-pulse">Starting...</span> : "Start Server"}
-              </Button>
+              {procStatus.running ? (
+                <Button variant="ghost" size="sm" onClick={handleStopServer} disabled={stopping}
+                  className="h-7 px-3 text-xs font-bold text-red-400 hover:bg-red-500/10">
+                  {stopping ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Square className="w-3 h-3 mr-1" />}
+                  Stop
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={handleStartServer} disabled={starting || !runCmd.trim()}
+                  className="h-7 px-3 text-xs font-bold text-green-400 hover:bg-green-500/10">
+                  {starting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                  {starting ? "Starting..." : "Start"}
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={handleSaveStartup} disabled={savingStartup}
                 className="h-7 px-3 text-xs font-bold text-accent hover:bg-accent/10">
                 <Save className="w-3 h-3 mr-1" /> Save
               </Button>
             </div>
           </div>
+          {procStatus.running && (
+            <div className="px-4 py-2 flex items-center gap-3 border-b" style={{ borderColor: "rgba(139,92,246,0.05)", background: "rgba(34,197,94,0.05)" }}>
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[11px] text-green-400 font-mono">PID {procStatus.pid} — {procStatus.cmd}</span>
+              <span className="text-[10px] text-zinc-600 ml-auto">
+                {new Date(procStatus.startedAt || "").toLocaleTimeString()}
+              </span>
+            </div>
+          )}
           <div className="p-4 flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <label className="text-[10px] font-mono text-zinc-500 mb-1 block">Build Command</label>
