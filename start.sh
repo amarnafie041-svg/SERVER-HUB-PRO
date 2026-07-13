@@ -46,6 +46,7 @@ echo "=========================================="
 echo "  Starting Server Hub Backend on port ${PORT:-3001}"
 echo "=========================================="
 
-cd /app/backend
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/backend"
 
 exec node --enable-source-maps dist/index.js
