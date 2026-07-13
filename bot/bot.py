@@ -951,9 +951,14 @@ def sub_paid_callback(call):
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
     except Exception:
         pass
+    contact = plans.get('payment_contact', '@V_9_X_9')
+    contact_link = f"https://t.me/{contact.lstrip('@')}"
+    user_mk = types.InlineKeyboardMarkup(row_width=1)
+    user_mk.add(ikb_button("💬 تواصل مع المطور", url=contact_link, style="primary"))
     bot.send_message(call.message.chat.id,
         "⏳ تم إرسال طلب اشتراكك للأدمن، سيتم تفعيل باقتك بعد التأكد من الدفع.\n"
-        "شكراً لصبرك 🌟")
+        "للتواصل مع المطور اضغط الزر بالأسفل 👇",
+        reply_markup=user_mk)
 
     mk = types.InlineKeyboardMarkup(row_width=2)
     mk.add(
