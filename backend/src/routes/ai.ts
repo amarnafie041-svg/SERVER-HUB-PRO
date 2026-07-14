@@ -51,7 +51,9 @@ router.put("/ai/settings", authenticate, async (_req: Request, res: Response): P
 
 router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   try {
+    const startTime = Date.now();
     const { message, model: modelKey, history = [], stream: doStream, thinking } = req.body;
+    logger.info({ model: modelKey, has_msg: !!message, stream: doStream }, "AI chat request received");
 
     if (!NVIDIA_API_KEY) {
       res.status(503).json({ error: "AI service not configured — NVIDIA_API_KEY is missing" });
@@ -166,16 +168,17 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    try { logger.error({ err: String(msg) }, "Failed to call AI"); } catch {}
+    const safeLog = `AI error: ${msg.slice(0, 500)}`;
+    try { logger.error({ err: safeLog }, "AI chat failed"); } catch { console.error("AI catch logger error:", safeLog); }
     try {
       if (doStream) {
         if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" });
-        res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: safeLog })}\n\n`);
         res.end();
       } else {
-        res.status(500).json({ error: msg, content: "", model: "unknown" });
+        res.status(500).json({ error: safeLog, content: "", model: "unknown" });
       }
-    } catch {}
+    } catch { console.error("AI catch send error"); }
   }
 });
 
