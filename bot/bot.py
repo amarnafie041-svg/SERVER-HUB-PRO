@@ -209,7 +209,7 @@ def _log_action(action_type, admin_id=None, details=None):
 def load_bot_settings():
     return load_json_file(BOT_SETTINGS_FILE, {
         'force_channel': '@ul2fg',
-        'points_per_server': 10,
+        'points_per_server': 7,
         'points_per_invite': 1,
         'dev_channel': 'https://t.me/ul2fg',
         'dev_user': 'https://t.me/I_tt_6',
@@ -694,23 +694,23 @@ def create_account_start(message):
             uname = u
             break
     if user_data:
-        import random
-        import string
-        auto_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
-        users[uname]['password'] = hashlib.sha256(auto_pass.encode()).hexdigest()
-        users[uname]['password_plain'] = auto_pass
-        save_users(users)
-        os.makedirs(os.path.join(USERS_FOLDER, uname), exist_ok=True)
-        assigned_ip = assign_ip(uname)
-        sync_user_to_panel(uname, auto_pass)
-        _send_server_created(message.chat.id, message.from_user, uname, auto_pass, assigned_ip)
-        _notify_admin_log(
-            f"🖥️ *تم إنشاء سيرفر جديد*\n"
-            f"👤 المستخدم: {user_ref(message.from_user)}\n"
-            f"🔑 اسم الحساب: `{uname}`",
-            admin_id=message.from_user.id,
-            markup=_chat_button(message.from_user.id)
+        ips_data = load_ips()
+        assigned_ips = ips_data.get('assigned', {})
+        ip = assigned_ips.get(uname, 'غير متاح')
+        password = user_data.get('password_plain', '🔒')
+        msg = (
+            f"✅ **حسابك موجود بالفعل!**\n\n"
+            f"👤 المستخدم: `{uname}`\n"
+            f"🔑 كلمة السر: `{password}`\n"
+            f"🌐 الـ IP: `{ip}`\n"
+            f"💰 نقاطك: `{user_data.get('points', 0)}`\n\n"
+            f"يمكنك استخدام حسابك في الموقع مباشرة."
         )
+        mk = types.InlineKeyboardMarkup(row_width=1)
+        base_url = (load_bot_settings().get('panel_url', '').rstrip('/') or 'https://server-hub-v1-0.onrender.com')
+        mk.add(ikb_button("🌐 الذهاب للسيرفر", url=f"{base_url}", style="primary"))
+        mk.add(ikb_button("📩 طلب إنشاء حساب إضافي", callback_data=f"req_extra_server_{uname}", style="success"))
+        bot.send_message(message.chat.id, msg, parse_mode="Markdown", reply_markup=mk)
         return
 
     invited_count = get_invited_count(message.from_user.id)
@@ -817,7 +817,7 @@ def buy_server_slot(call):
     bot.answer_callback_query(call.id)
     users = load_users()
     settings = load_bot_settings()
-    cost = settings.get('points_per_server', 10)
+    cost = settings.get('points_per_server', 7)
     for uname, data in users.items():
         if data.get('telegram_id') == call.from_user.id:
             pts = data.get('points', 0)
@@ -872,6 +872,37 @@ def cancel_buy_server(call):
         bot.send_message(call.message.chat.id,
             f"✅ تم إلغاء العملية واسترجاع `{cost}` نقطة.\n💰 رصيدك: `{new_pts}` نقطة.",
             parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("req_extra_server_"))
+def req_extra_server_callback(call):
+    bot.answer_callback_query(call.id)
+    uname = call.data.split("req_extra_server_", 1)[1]
+    users = load_users()
+    data = users.get(uname)
+    if not data:
+        bot.send_message(call.message.chat.id, "❌ لم يتم العثور على حسابك.")
+        return
+    settings = load_bot_settings()
+    cost = settings.get('points_per_server', 7)
+    pts = data.get('points', 0)
+    if pts < cost:
+        bot.send_message(call.message.chat.id,
+            f"❌ رصيدك غير كافٍ!\n\n"
+            f"💰 رصيدك: `{pts}` نقطة\n"
+            f"💸 المطلوب: `{cost}` نقطة\n\n"
+            f"استخدم الأكواد 🎟️ للحصول على نقاط.",
+            parse_mode="Markdown")
+        return
+    new_pts, ok = deduct_points(uname, cost, "طلب إنشاء حساب إضافي")
+    if not ok:
+        bot.send_message(call.message.chat.id, "❌ حدث خطأ أثناء خصم النقاط.")
+        return
+    bot.send_message(call.message.chat.id,
+        f"✅ تم خصم `{cost}` نقطة.\n💰 رصيدك المتبقي: `{new_pts}` نقطة\n\n"
+        f"🖥️ أرسل اسم المستخدم الجديد (بالإنجليزية):",
+        parse_mode="Markdown")
+    msg = bot.send_message(call.message.chat.id, "اكتب اسم المستخدم:")
+    bot.register_next_step_handler(msg, process_paid_username)
 
 def process_paid_username(message):
     if not enforce_subscription(message):
@@ -1083,7 +1114,7 @@ def buy_points(message):
     settings = load_bot_settings()
     bot.send_message(message.chat.id,
         f"💫 **شراء النقاط:**\n\n"
-        f"🔹 {settings.get('points_per_server', 10)} نقطة = سيرفر إضافي\n"
+        f"🔹 {settings.get('points_per_server', 7)} نقطة = سيرفر إضافي\n"
         f"🔹 للحصول على نقاط مجانية استخدم زر الإحالة 🔗\n\n"
         f"📩 للشراء تواصل مع المطور:",
         parse_mode="Markdown",
@@ -1362,7 +1393,7 @@ def admin_callbacks(call):
             f"🧾 طلبات الدفع المعلّقة: `{pending_count}`\n"
             f"👑 الأدمنز: `{len(admins) + 1}`\n"
             f"📢 قناة الاشتراك: `{channel}`\n"
-            f"💰 نقاط/سيرفر: `{settings.get('points_per_server', 10)}`\n"
+            f"💰 نقاط/سيرفر: `{settings.get('points_per_server', 7)}`\n"
             f"🔗 نقاط/إحالة: `{settings.get('points_per_invite', 1)}`"
         )
         bot.send_message(call.message.chat.id, msg, parse_mode="Markdown")
@@ -1488,7 +1519,7 @@ def admin_callbacks(call):
     # ─── تكلفة السيرفر ───
     elif call.data == "admin_set_server_cost":
         settings = load_bot_settings()
-        current_cost = settings.get('points_per_server', 10)
+        current_cost = settings.get('points_per_server', 7)
         msg = bot.send_message(call.message.chat.id,
             f"⚙️ **تكلفة السيرفر الإضافي الحالية:** `{current_cost}` نقطة\n\nأرسل العدد الجديد:",
             parse_mode="Markdown")
@@ -1960,7 +1991,7 @@ def admin_set_server_cost_step(message):
             bot.send_message(message.chat.id, "❌ يجب أن يكون الرقم أكبر من أو يساوي صفر.")
             return
         settings = load_bot_settings()
-        old = settings.get('points_per_server', 10)
+        old = settings.get('points_per_server', 7)
         settings['points_per_server'] = cost
         save_bot_settings(settings)
         _log_action("تعديل تكلفة السيرفر", admin_id=message.from_user.id,
