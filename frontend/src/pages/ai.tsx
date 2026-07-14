@@ -182,7 +182,10 @@ export default function AIPage() {
         signal: controller.signal,
       });
 
-      if (!response.ok) throw new Error("Stream failed");
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errBody.error || `خطأ ${response.status}`);
+      }
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let fullContent = "";
@@ -210,7 +213,7 @@ export default function AIPage() {
       }
     } catch (err: any) {
       if (err.name !== "AbortError") {
-        setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: "عذراً، حدث خطأ. حاول مرة أخرى.", streaming: false } : m));
+        setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: `❌ ${err.message}`, streaming: false } : m));
       }
     } finally {
       setIsStreaming(false);
