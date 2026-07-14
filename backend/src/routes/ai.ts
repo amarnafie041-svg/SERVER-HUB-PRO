@@ -1,251 +1,244 @@
 import { Router, type IRouter } from "express";
 import { Request, Response } from "express";
-import * as fs from "fs";
 import * as https from "https";
+import * as http from "http";
+import * as querystring from "querystring";
 import { logger } from "../lib/logger";
 import { authenticate } from "../middleware/authenticate";
 
 const router: IRouter = Router();
 
-const NVIDIA_BASE_URL = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1";
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
-
-interface ModelConfig {
-  model: string;
-  temp: number;
-  top_p: number;
-  max_tokens: number;
-  name: string;
-  thinking?: boolean;
-}
-
-const AI_MODELS: Record<string, ModelConfig> = {
-  "gpt-oss": {
-    model: "openai/gpt-oss-20b",
-    temp: 1,
-    top_p: 1,
-    max_tokens: 4096,
-    name: "GPT-OSS 20B",
-  },
-  "deepseek": {
-    model: "deepseek-ai/deepseek-v4-pro",
-    temp: 1,
-    top_p: 0.95,
-    max_tokens: 16384,
-    name: "DeepSeek V4 Pro",
-    thinking: true,
-  },
+const MODELS: Record<string, { x: string; name: string }> = {
+  "gemini-flash": { x: '[1,null,null,null,"35609594dbe934d8"]', name: "Gemini 3.5 Flash" },
+  "gemini-deep": { x: '[1,null,null,null,"cd472a54d2abba7e"]', name: "Gemini Deep Research" },
 };
 
-function httpsRequest(url: string, body: string, apiKey: string, timeoutMs = 30000): Promise<string> {
+const BASE_URL = "https://gemini.google.com";
+const API_PATH = "/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate";
+const BOQ_VERSION = "boq_assistant-bard-web-server_20240519.16_p0";
+
+let cookieJar = "";
+let conversationId: string | null = null;
+let responseId: string | null = null;
+let choiceId: string | null = null;
+
+function httpsGet(url: string): Promise<{ body: string; headers: http.IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const data = Buffer.from(body, "utf-8");
-    const options: https.RequestOptions = {
-      hostname: urlObj.hostname,
-      port: 443,
-      path: urlObj.pathname + urlObj.search,
-      method: "POST",
+    const u = new URL(url);
+    const opts: https.RequestOptions = {
+      hostname: u.hostname, path: u.pathname + u.search, method: "GET",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Length": data.length,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
       },
-      timeout: timeoutMs,
+      timeout: 15000,
     };
-    const req = https.request(options, (res) => {
-      let chunks: Buffer[] = [];
-      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+    if (cookieJar) opts.headers = { ...opts.headers, Cookie: cookieJar };
+    const req = https.request(opts, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
       res.on("end", () => {
-        const result = Buffer.concat(chunks).toString("utf-8");
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(result);
-        } else {
-          reject(new Error(`NVIDIA API ${res.statusCode}: ${result.slice(0, 500)}`));
+        const setCook = res.headers["set-cookie"];
+        if (setCook) {
+          const parsed = (Array.isArray(setCook) ? setCook : [setCook])
+            .map((c: string) => c.split(";")[0]).join("; ");
+          if (parsed) cookieJar = parsed;
         }
+        resolve({ body: Buffer.concat(chunks).toString(), headers: res.headers });
       });
     });
-    req.on("error", (e) => reject(new Error(`Request failed: ${e.message}`)));
-    req.on("timeout", () => { req.destroy(); reject(new Error("Request timed out")); });
-    req.write(data);
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("GET timed out")); });
     req.end();
   });
 }
 
-const SYSTEM_PROMPT = `You are a helpful AI assistant specialized in SERVER HUB — a professional server management platform.
-You have expertise in server administration, Linux, Python, Node.js, PHP, Docker, and programming in general.
-Provide clear, concise, and accurate responses. Format code blocks with proper markdown syntax.
-When writing code, always provide complete, working examples.`;
+function httpsPost(url: string, data: string, xHeader: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const buf = Buffer.from(data, "utf-8");
+    const opts: https.RequestOptions = {
+      hostname: u.hostname, path: u.pathname + u.search, method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Content-Length": buf.length,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        Origin: "https://gemini.google.com",
+        Referer: "https://gemini.google.com/",
+        "x-same-domain": "1",
+        "x-goog-ext-525001261-jspb": xHeader,
+      },
+      timeout: 60000,
+    };
+    if (cookieJar) opts.headers = { ...opts.headers, Cookie: cookieJar };
+    const req = https.request(opts, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
+      res.on("end", () => {
+        const setCook = res.headers["set-cookie"];
+        if (setCook) {
+          const parsed = (Array.isArray(setCook) ? setCook : [setCook])
+            .map((c: string) => c.split(";")[0]).join("; ");
+          if (parsed) cookieJar = parsed;
+        }
+        resolve(Buffer.concat(chunks).toString());
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("POST timed out")); });
+    req.write(buf);
+    req.end();
+  });
+}
 
-router.get("/ai/settings", authenticate, async (_req: Request, res: Response): Promise<void> => {
-  res.json({ has_key: !!NVIDIA_API_KEY });
+function extractFdrToken(html: string): string | null {
+  const m = html.match(/"FdrFJe":"([\d-]+)"/);
+  return m ? m[1] : null;
+}
+
+function parseGeminiResponse(raw: string): string | null {
+  const lines = raw.split("\n");
+  let fullText = "";
+  for (const line of lines) {
+    if (!line || line.startsWith(")]}'")) continue;
+    try {
+      const arr = JSON.parse(line);
+      if (!Array.isArray(arr) || arr.length < 1) continue;
+      const item = arr[0];
+      if (!Array.isArray(item) || item.length < 3) continue;
+      const innerStr = item[2];
+      if (typeof innerStr !== "string") continue;
+      const inner = JSON.parse(innerStr);
+      if (!Array.isArray(inner) || inner.length < 5) continue;
+
+      if (inner[1] && Array.isArray(inner[1]) && inner[1].length >= 2) {
+        conversationId = inner[1][0];
+        responseId = inner[1][1];
+        if (inner[1].length >= 3) choiceId = inner[1][2];
+      }
+
+      if (inner[4] && Array.isArray(inner[4]) && inner[4].length > 0) {
+        const firstResp = inner[4][0];
+        if (Array.isArray(firstResp) && firstResp.length > 1) {
+          const textList = firstResp[1];
+          if (Array.isArray(textList) && textList.length > 0) {
+            const text = textList[0];
+            if (typeof text === "string" && text.length > fullText.length) {
+              fullText = text;
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return fullText || null;
+}
+
+router.get("/ai/settings", async (_req: Request, res: Response): Promise<void> => {
+  res.json({ has_key: true });
 });
 
-router.put("/ai/settings", authenticate, async (_req: Request, res: Response): Promise<void> => {
+router.put("/ai/settings", async (_req: Request, res: Response): Promise<void> => {
   res.json({ success: true });
 });
 
 router.get("/ai/ping", async (_req: Request, res: Response): Promise<void> => {
-  res.json({ ok: true, has_key: !!NVIDIA_API_KEY });
+  res.json({ ok: true, has_key: true, models: Object.keys(MODELS) });
 });
 
 router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   try {
-    const startTime = Date.now();
-    const { message, model: modelKey, history = [], stream: doStream, thinking } = req.body;
-    logger.info({ model: modelKey, has_msg: !!message, stream: doStream }, "AI chat request received");
-
-    if (!NVIDIA_API_KEY) {
-      res.status(503).json({ error: "AI service not configured — NVIDIA_API_KEY is missing" });
-      return;
-    }
+    const { message, model: modelKey, stream: doStream } = req.body;
+    logger.info({ model: modelKey, has_msg: !!message, stream: doStream }, "AI chat request");
 
     if (!message || typeof message !== "string") {
-      res.status(400).json({ error: "Message required" });
+      res.status(400).json({ error: "Message required" }); return;
+    }
+
+    const modelCfg = MODELS[modelKey] || MODELS["gemini-flash"];
+
+    // Get FdrFJe token from Gemini homepage
+    const { body: html } = await httpsGet(BASE_URL);
+    const fdrToken = extractFdrToken(html);
+    if (!fdrToken) {
+      res.status(502).json({ error: "Failed to get Gemini token", content: "", model: modelCfg.name });
       return;
     }
 
-    const modelConfig = AI_MODELS[modelKey] || AI_MODELS["gpt-oss"];
-
-    const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...history.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      { role: "user", content: message },
+    const reqData = [
+      [message, 0, null, [], null, null, 0],
+      ["en"],
+      [null, null, null, null, null, []],
+      null, null, null, [], 0, [], [], 1, 0,
     ];
-
-    const requestBody: any = {
-      model: modelConfig.model,
-      messages,
-      temperature: modelConfig.temp,
-      top_p: modelConfig.top_p,
-      max_tokens: modelConfig.max_tokens,
-      stream: Boolean(doStream),
-    };
-
-    // DeepSeek requires chat_template_kwargs for thinking mode
-    // Use frontend thinking param if provided, otherwise use model default
-    const thinkingMode = thinking !== undefined ? Boolean(thinking) : modelConfig.thinking;
-    if (thinkingMode !== undefined) {
-      requestBody.chat_template_kwargs = { thinking: thinkingMode };
+    if (conversationId && responseId) {
+      const ctx: any[] = [conversationId, responseId];
+      if (choiceId) ctx.push(choiceId);
+      reqData[2] = ctx;
     }
 
-    if (doStream) {
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-      res.flushHeaders();
+    const payload = querystring.stringify({
+      at: "dummy",
+      "f.req": JSON.stringify([null, JSON.stringify(reqData)]),
+    });
+
+    const params = querystring.stringify({
+      bl: BOQ_VERSION, hl: "en",
+      _reqid: String(Math.floor(Math.random() * 90000) + 10000),
+      rt: "c", "f.sid": fdrToken,
+    });
+
+    const apiUrl = `${BASE_URL}${API_PATH}?${params}`;
+    const raw = await httpsPost(apiUrl, payload, modelCfg.x);
+    const content = parseGeminiResponse(raw);
+
+    if (!content) {
+      res.status(502).json({ error: "No response from Gemini", content: "", model: modelCfg.name });
+      return;
     }
 
-    const raw = await httpsRequest(
-      `${NVIDIA_BASE_URL}/chat/completions`,
-      JSON.stringify(requestBody),
-      NVIDIA_API_KEY,
-      30000
-    );
-
-    if (doStream) {
-      res.setHeader("Content-Type", "text/event-stream");
-      const lines = raw.split("\n");
-      let fullContent = "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") { res.write("data: [DONE]\n\n"); continue; }
-        try {
-          const parsed = JSON.parse(data);
-          const delta = parsed.choices?.[0]?.delta;
-          const reasoning = delta?.reasoning_content || "";
-          const content = delta?.content || "";
-          if (reasoning || content) {
-            fullContent += reasoning || content;
-            res.write(`data: ${JSON.stringify({ delta: reasoning || content, content: fullContent, model: modelConfig.name })}\n\n`);
-          }
-        } catch { /* skip malformed chunk */ }
-      }
-      res.end();
-    } else {
-      const parsed = JSON.parse(raw);
-      const content = parsed.choices?.[0]?.message?.content || "";
-      res.json({ content, model: modelConfig.name });
-    }
+    res.json({ content, model: modelCfg.name });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     const safeLog = `AI error: ${msg.slice(0, 500)}`;
-    try { logger.error({ err: safeLog }, "AI chat failed"); } catch { console.error("AI catch logger error:", safeLog); }
+    try { logger.error({ err: safeLog }, "AI chat failed"); } catch { console.error(safeLog); }
     try {
-      if (doStream) {
-        if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" });
-        res.write(`data: ${JSON.stringify({ error: safeLog })}\n\n`);
-        res.end();
-      } else {
-        res.status(500).json({ error: safeLog, content: "", model: "unknown" });
-      }
-    } catch { console.error("AI catch send error"); }
+      res.status(500).json({ error: safeLog, content: "", model: "unknown" });
+    } catch {}
   }
 });
 
-router.post("/ai/analyze", authenticate, async (req: Request, res: Response): Promise<void> => {
+router.post("/ai/analyze", async (req: Request, res: Response): Promise<void> => {
   try {
     const { path: filePath, question } = req.body;
-
-    if (!NVIDIA_API_KEY) {
-      res.status(503).json({ error: "AI service not configured — NVIDIA_API_KEY is missing" });
-      return;
-    }
-
     if (!filePath || !question) {
-      res.status(400).json({ error: "Path and question required" });
-      return;
+      res.status(400).json({ error: "Path and question required" }); return;
     }
-
     let fileContent = "";
     try {
-      fileContent = fs.readFileSync(filePath, "utf8").slice(0, 8000);
+      fileContent = require("fs").readFileSync(filePath, "utf8").slice(0, 8000);
     } catch {
-      res.status(404).json({ error: "File not found or unreadable" });
-      return;
+      res.status(404).json({ error: "File not found or unreadable" }); return;
     }
+    // Reuse chat endpoint internally
+    const prompt = `Analyze this file (${filePath}):\n\n\`\`\`\n${fileContent}\n\`\`\`\n\n${question}`;
+    const { body: html } = await httpsGet(BASE_URL);
+    const fdrToken = extractFdrToken(html);
+    if (!fdrToken) { res.status(502).json({ error: "Failed to get Gemini token", content: "", model: "Gemini" }); return; }
 
-    const modelConfig = AI_MODELS["gpt-oss"];
-
-    const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: `Analyze this file (${filePath}):\n\n\`\`\`\n${fileContent}\n\`\`\`\n\n${question}` },
-    ];
-
-    const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${NVIDIA_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: modelConfig.model,
-        messages,
-        temperature: 0.7,
-        top_p: 1,
-        max_tokens: 4096,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      logger.error({ status: response.status, body: errText }, "AI analyze error");
-      res.status(502).json({ error: "AI service error", content: "", model: modelConfig.name });
-      return;
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content || "";
-    res.json({ content, model: modelConfig.name });
-  } catch (err) {
-    logger.error({ err }, "Failed to analyze file");
-    res.status(500).json({ error: "Internal error", content: "", model: "unknown" });
+    const reqData = [[prompt, 0, null, [], null, null, 0], ["en"], [null, null, null, null, null, []], null, null, null, [], 0, [], [], 1, 0];
+    const payload = querystring.stringify({ at: "dummy", "f.req": JSON.stringify([null, JSON.stringify(reqData)]) });
+    const params = querystring.stringify({ bl: BOQ_VERSION, hl: "en", _reqid: String(Math.floor(Math.random() * 90000) + 10000), rt: "c", "f.sid": fdrToken });
+    const raw = await httpsPost(`${BASE_URL}${API_PATH}?${params}`, payload, MODELS["gemini-flash"].x);
+    const content = parseGeminiResponse(raw);
+    res.json({ content: content || "No response", model: "Gemini 3.5 Flash" });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    try { logger.error({ err: msg }, "Analyze failed"); } catch {}
+    res.status(500).json({ error: msg, content: "", model: "unknown" });
   }
 });
 

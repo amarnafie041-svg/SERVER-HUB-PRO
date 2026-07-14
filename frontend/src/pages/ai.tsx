@@ -4,7 +4,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
   Send, Bot, User, Copy, Check, Trash2, FileSearch,
-  Loader2, Sparkles, Terminal, Brain,
+  Loader2, Sparkles, Terminal,
   Plus, MessageSquare, X, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ function getToken(): string | null {
   return localStorage.getItem("sh_token");
 }
 
-type Model = "gpt-oss" | "deepseek";
+type Model = "gemini-flash" | "gemini-deep";
 
 interface Message {
   id: string;
@@ -37,8 +37,8 @@ interface Conversation {
 }
 
 const MODEL_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  "gpt-oss": { label: "GPT-OSS 20B", icon: Sparkles, color: "#22c55e" },
-  "deepseek": { label: "DeepSeek V4 Pro", icon: Terminal, color: "#3b82f6" },
+  "gemini-flash": { label: "Gemini 3.5 Flash", icon: Sparkles, color: "#22c55e" },
+  "gemini-deep": { label: "Gemini Deep Research", icon: Terminal, color: "#3b82f6" },
 };
 
 const STORAGE_KEY = "sh_ai_conversations";
@@ -78,7 +78,7 @@ export default function AIPage() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [model, setModel] = useState<Model>("gpt-oss");
+  const [model, setModel] = useState<Model>("gemini-flash");
   const [thinking, setThinking] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "analyze">("chat");
@@ -102,14 +102,14 @@ export default function AIPage() {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2),
       title: "محادثة جديدة",
       messages: [],
-      model: "gpt-oss",
+      model: "gemini-flash",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     setConversations((prev) => [newConv, ...prev]);
     setActiveConvId(newConv.id);
     setMessages([]);
-    setModel("gpt-oss");
+    setModel("gemini-flash");
   }, []);
 
   const selectConversation = useCallback((convId: string) => {
@@ -178,7 +178,7 @@ export default function AIPage() {
       const response = await fetch(`${BASE}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ message: msg, model, history, stream: false, thinking: model === "deepseek" ? thinking : undefined }),
+        body: JSON.stringify({ message: msg, model, history, stream: false }),
         signal: controller.signal,
       });
 
@@ -320,19 +320,7 @@ export default function AIPage() {
                 );
               })}
             </div>
-            {model === "deepseek" && (
-              <button onClick={() => setThinking(!thinking)}
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-all"
-                style={{
-                  border: `1px solid ${thinking ? "rgba(139,92,246,0.4)" : "var(--border)"}`,
-                  background: thinking ? "rgba(139,92,246,0.1)" : "transparent",
-                  color: thinking ? "#a855f7" : "var(--foreground)",
-                }}
-                title={thinking ? "وضع التفكير مفعّل" : "وضع التفكير معطّل"}>
-                <Brain className="w-3 h-3" />
-                <span>{thinking ? "تفكير" : "بدون تفكير"}</span>
-              </button>
-            )}
+
             <Button variant="ghost" size="sm" onClick={() => { setMessages([]); setActiveConvId(null); }}
               className="h-7 px-1.5" style={{ color: "var(--foreground)" }} title="مسح المحادثة">
               <Trash2 className="w-3.5 h-3.5" />
