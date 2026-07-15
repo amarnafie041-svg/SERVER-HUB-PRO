@@ -134,7 +134,7 @@ export PIP_REQUIRE_VIRTUALENV=false
 export PIP_CONFIG_FILE="${baseDir}/.config/pip/pip.conf"
 export PS1="\\[\\e[38;5;46m\\]┌──(\\[\\e[1m\\]\\[\\e[38;5;226m\\]user_${name}\\[\\e[0m\\]\\[\\e[38;5;46m\\]㉿\\[\\e[38;5;226m\\]serverhub\\[\\e[0m\\]\\[\\e[38;5;46m\\])-[\\[\\e[38;5;87m\\]\\\\w\\[\\e[0m\\]\\[\\e[38;5;46m\\]]\\[\\e[0m\\]\\n\\[\\e[38;5;46m\\]└─\\[\\e[0m\\]$ "
 cd "${baseDir}" || exit 1
-ulimit -S -t ${limits?.cpu_limit ? Math.round(300 * (limits.cpu_limit / 100)) : 300} 2>/dev/null
+ulimit -S -t unlimited 2>/dev/null
 ulimit -S -n 2048 2>/dev/null
 ulimit -S -u 200 2>/dev/null
 ${limits?.ram_limit ? `ulimit -v $(( ${limits.ram_limit} / 1024 )) 2>/dev/null` : "ulimit -S -v unlimited 2>/dev/null"}

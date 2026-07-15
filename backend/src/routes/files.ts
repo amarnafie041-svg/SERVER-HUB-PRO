@@ -782,7 +782,7 @@ router.post("/files/run", authenticate, async (req: Request, res: Response): Pro
     );
 
     // Build the command — ALL languages go through their sandbox runner
-    const TIMEOUT_MS = 30_000;
+    const TIMEOUT_MS = parseInt(process.env.SCRIPT_TIMEOUT || "300000", 10);
     let cmd: string;
     let cmdArgs: string[];
     const runnerDir = __dirname;
